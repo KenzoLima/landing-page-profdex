@@ -1,0 +1,12 @@
+/* Fonte de display, auto-hospedada. Ver public/fonts/README.md para o porquê. */
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-weight: 400;
+  /* `swap`: o texto aparece imediatamente na fonte de sistema e troca quando a
+   * pixel chega. Em rede ruim, ler o hero atrasado é pior que ver a troca. */
+  font-display: swap;
+  src: url('/fonts/press-start-2p-latin.woff2') format('woff2');
+  /* Só latim — cobre todo o português. */
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+20AC, U+2122;
+}

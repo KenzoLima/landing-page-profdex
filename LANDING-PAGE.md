@@ -149,19 +149,22 @@ Use esta seção como matéria-prima para as seções da landing.
 
 O fluxo real, como está na home do app:
 
-1. **Encontre os professores** — explore o evento.
-2. **Ache o professor** — o app diz quem é; encontre-o **pessoalmente** e
-   responda uma pergunta corretamente.
+1. **Encontre o estande Profdex** — mesa com os integrantes do time Profdex no
+   evento.
+2. **Rode o quiz com perguntas sobre o curso** — responda uma pergunta
+   corretamente.
 3. **Receba o QR** — acertou? O professor apresenta o QR de captura protegido.
-4. **Capture!** — leia o QR no scanner. A prova é validada **pelo servidor**
-   antes da captura.
+   Se ganhar será sorteado um QR code da pilha podendo conter qualquer professor
+   com tipos diferentes.
+4. **Capture!** — leia o QR no scanner. A prova é validada **pelo servidor**.
 
 ### 4.2 Quiz de bancada
 
 Um tablet no estande do evento. O aluno informa a matrícula, escolhe um **tema** e
 responde **uma pergunta em 60 segundos**, com um administrador ao lado. Acertou →
-é mandado escanear o QR do professor daquele tema. Errou ou estourou o tempo →
-volta em **10 minutos** (cooldown por aluno + tema).
+**sorteia um QR code da pilha** e vai escanear — o professor que vem no QR não é
+definido pelo tema da pergunta (ver §4.1). Errou ou estourou o tempo → volta em
+**10 minutos** (cooldown por aluno + tema).
 
 Banco de **10 questões por tema** (4 fáceis, 3 médias, 3 difíceis) × 9 temas.
 Alternativas embaralhadas a cada aplicação; o gabarito nunca sai do servidor
@@ -205,8 +208,9 @@ Ordem da roda, com ícone e cor canônicos (`src/data/types.js`):
 
 > Uma roda de 9 tipos desenhada em SVG, com as cores acima e as setas de
 > vantagem, é provavelmente a peça visual mais forte disponível para a landing.
-> Os temas do quiz **são** esses mesmos 9 tipos — não é coincidência: quem
-> acerta uma questão de `banco` é mandado capturar um professor de `banco`.
+> Os temas do quiz **são** esses mesmos 9 tipos. Atenção: o tema da pergunta
+> **não** define qual professor será capturado — o QR é sorteado da pilha
+> (§4.1), então a coleção sai naturalmente variada.
 
 ### 4.5 PvP ranqueado (a feature mais recente — status: implementado)
 
