@@ -186,7 +186,8 @@ export const professors = {
 export const model3d = {
   kicker: 'Ver de perto',
   title: 'O professor em 3D',
-  desc: 'Dentro do app, a tela "Ver Prof." abre o modelo em realidade aumentada. Aqui você gira uma prévia — se quiser.',
+  desc: 'Dentro do app, a tela "Ver Prof." abre o modelo em realidade aumentada. Aqui você escolhe um professor e gira a prévia — se quiser.',
+  pickerLabel: 'Escolha o professor para ver em 3D',
   cta: 'VER EM 3D',
   ctaHint: 'Só baixa quando você tocar — nada é gasto da sua internet antes disso.',
   loading: 'Carregando modelo',

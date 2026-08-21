@@ -21,27 +21,36 @@ const lockedStyle = computed(() => ({
   '--locked-tint': primaryType.value?.color ?? 'var(--surface-border)',
 }))
 
+// O card desbloqueado usa a mesma cor, e pela mesma razão: o palco atrás do
+// sprite é a primeira coisa que diz de que tipo é aquele professor, antes de o
+// olho chegar na badge. Os sprites vêm do cartoon e todos têm o mesmo fundo azul
+// claro — sem este tom por baixo, os três cards seriam a mesma peça com rostos
+// diferentes.
+const unlockedStyle = computed(() => ({
+  '--type-tint': primaryType.value?.color ?? 'var(--surface-border)',
+}))
+
 const dexNumber = computed(() => String(props.index + 1).padStart(3, '0'))
 
 const unknownLabel = professorsCopy.unknownLabel
 </script>
 
 <template>
-  <li v-if="!locked" class="card gba-frame gba-frame--plain">
+  <li v-if="!locked" class="card gba-frame gba-frame--plain" :style="unlockedStyle">
     <p class="card__num">Nº {{ dexNumber }}</p>
-    <picture>
-      <source :srcset="professor.image" type="image/webp" />
-      <!-- O fallback é o arquivo original do app (JPEG, apesar da extensão). -->
-      <img
-        class="card__art"
-        :src="professor.fallback"
-        :alt="`Arte do professor ${professor.name}`"
-        width="512"
-        height="512"
-        loading="lazy"
-        decoding="async"
-      />
-    </picture>
+    <!-- O boneco, e não o cartoon: é a arte com que o aluno vai conviver dentro
+         do jogo, e a que faz um card de Pokédex parecer um card de Pokédex.
+         64×64 subindo para ~170 px na tela — daí o `pixelated`, sem o qual o
+         navegador borra a grade inteira. -->
+    <img
+      class="card__art pixelated"
+      :src="professor.sprite"
+      :alt="`Boneco do professor ${professor.name}`"
+      width="64"
+      height="64"
+      loading="lazy"
+      decoding="async"
+    />
     <div class="card__body">
       <h3 class="card__name">{{ professor.name }}</h3>
       <ul class="card__types">
@@ -97,10 +106,18 @@ const unknownLabel = professorsCopy.unknownLabel
   width: 100%;
   height: auto;
   aspect-ratio: 1;
-  object-fit: cover;
+  /* `contain`, nunca `cover`: o boneco é corpo inteiro sobre transparência, e
+   * `cover` cortaria os pés para preencher o quadrado. */
+  object-fit: contain;
+  /* Um respiro em volta para o boneco não encostar na borda do card. */
+  padding: var(--space-2);
   border: 2px solid var(--surface-border);
   border-radius: var(--radius);
-  background: var(--bg-deep);
+  /* O palco atrás do boneco é a cor do TIPO. Ele aparece de verdade (o sprite é
+   * transparente), então é a primeira coisa que diz de que tipo é o professor —
+   * antes de o olho chegar na badge. É o mesmo tratamento do card travado, e é o
+   * que separa 14 cards numa grade em vez de 14 retângulos iguais. */
+  background: color-mix(in srgb, var(--type-tint) 22%, var(--bg-deep));
 }
 
 .card__silhouette {

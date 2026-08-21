@@ -1,6 +1,6 @@
 // O elenco da Pokédex.
 //
-// FONTE: profdex-front/src/data/{professorTypes,professorSprites}.js.
+// FONTE: profdex-front/src/data/{professorTypes,professorSprites,professorModels}.js.
 //
 // ⚠️ Correção em relação ao LANDING-PAGE.md §3, que fala em "16 professores
 // mapeados": o PROFESSOR_TYPES tem 16 CHAVES, não 16 pessoas. Duas são pares de
@@ -14,35 +14,69 @@
 // números — eles saem de `TOTAL_PROFESSORS` e `LOCKED_COUNT`, derivados daqui.
 // Um professor novo com arte é uma linha nesta lista, e a página se ajusta.
 
-/** Os únicos com arte e presença no seed do banco. */
+/**
+ * Os únicos com arte e presença no seed do banco.
+ *
+ * Cada um carrega TRÊS representações, porque a página usa três coisas
+ * diferentes e trocá-las de lugar é o erro fácil aqui:
+ *
+ *  · `sprite` / `spriteBack` — o BONECO, 64×64, corpo inteiro sobre
+ *                 transparência. É a arte que a batalha usa no app, e o que o
+ *                 briefing pede na landing (§"Batalha: enquadramento clássico
+ *                 com os sprites pixel"). Sempre com `image-rendering: pixelated`.
+ *                 O de costas existe porque o enquadramento clássico mostra quem
+ *                 você controla de costas, em primeiro plano.
+ *  · `spriteFace` — recorte do rosto, tirado do sprite de frente. É o retrato
+ *                 da seção 3D: um zoom, na mesma linguagem do resto.
+ *  · `image`    — o cartoon emoldurado em QR. Retrato de ficha, não de combate:
+ *                 é um card quadrado com fundo, não um recorte de personagem.
+ *  · `model`    — o `.glb` já otimizado (scripts/optimize-model.mjs). Só a seção
+ *                 3D toca nisto, e só depois de clique.
+ */
 export const CAPTURABLE = [
   {
     slug: 'mario',
     name: 'Mário',
     types: ['algoritmos'],
+    sprite: '/professors/mario-pixel.png',
+    spriteBack: '/professors/mario-pixel-costas.png',
+    spriteFace: '/professors/mario-pixel-face.png',
     // Os arquivos `-cartoon` do app são JPEG apesar da extensão .png. O nome foi
     // mantido igual ao do app de propósito, para os dois repositórios seguirem
     // comparáveis; o .webp ao lado é gerado por scripts/optimize-assets.mjs.
     image: '/professors/mario-cartoon.webp',
     fallback: '/professors/mario-cartoon.png',
+    model: '/models/mario-hero.glb',
   },
   {
     slug: 'eron',
     name: 'Eron',
     types: ['arquitetura', 'ia-ml'],
+    sprite: '/professors/eron-pixel.png',
+    spriteBack: '/professors/eron-pixel-costas.png',
+    spriteFace: '/professors/eron-pixel-face.png',
     image: '/professors/eron-cartoon.webp',
     fallback: '/professors/eron-cartoon.png',
+    model: '/models/eron-hero.glb',
   },
   {
     slug: 'gustavo',
     name: 'Gustavo',
     types: ['arquitetura'],
+    sprite: '/professors/gustavo-pixel.png',
+    spriteBack: '/professors/gustavo-pixel-costas.png',
+    spriteFace: '/professors/gustavo-pixel-face.png',
     image: '/professors/gustavo-cartoon.webp',
     fallback: '/professors/gustavo-cartoon.png',
-    // Gustavo é também o boneco que o jogador controla na arena PvE.
+    model: '/models/gustavo-hero.glb',
+    // Gustavo é também o boneco que o jogador controla na arena PvE — por isso a
+    // seção de batalha usa o `spriteBack` dele, de costas em primeiro plano.
     isPlayerAvatar: true,
   },
 ]
+
+/** Acesso por slug — o que as seções usam para pegar um combatente específico. */
+export const BY_SLUG = Object.fromEntries(CAPTURABLE.map((p) => [p.slug, p]))
 
 /**
  * Professores mapeados no sistema de tipos mas ainda sem retrato.

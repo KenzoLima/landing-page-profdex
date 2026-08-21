@@ -1,4 +1,4 @@
-import { onBeforeUnmount, readonly, ref } from 'vue'
+import { onBeforeUnmount, readonly, ref, toValue } from 'vue'
 
 // A cadeia de guardas que decide se esta página pode montar WebGL.
 //
@@ -11,14 +11,10 @@ import { onBeforeUnmount, readonly, ref } from 'vue'
 // A regra de ouro: no estado inicial a seção é uma IMAGEM. WebGL só existe
 // depois que todas as guardas abaixo passarem, e some quando a seção sai.
 
-/**
- * Tamanho do modelo publicado, em MB — mostrado ao usuário antes de baixar.
- *
- * O scripts/check-asset-budget.mjs compara este número com o arquivo real e
- * quebra o build se eles divergirem: um aviso de tamanho que mente é pior que
- * nenhum aviso.
- */
-export const MODEL_SIZE_MB = 0.4
+// O tamanho anunciado ao usuário NÃO mora mais aqui: ele é medido no arquivo
+// publicado por scripts/optimize-model.mjs e chega pelo `src/config/model.js`.
+// Um número digitado à mão envelhece na primeira reotimização, e um aviso de
+// tamanho que mente é pior que nenhum aviso.
 
 // Trava de instância única no escopo do MÓDULO (não do componente): mesmo que
 // alguém instancie duas seções 3D, só uma consegue montar. Este é literalmente
@@ -30,7 +26,10 @@ let activeInstance = null
  */
 
 /**
- * @param {{ modelUrl: string|null }} options
+ * @param {{ modelUrl: string|null|(() => string|null)|import('vue').Ref<string|null> }} options
+ *   `modelUrl` aceita valor, ref ou getter porque a seção troca de professor: se
+ *   fosse lido uma vez na criação, as guardas continuariam avaliando o modelo
+ *   que estava selecionado quando o componente montou.
  */
 export function useLazyModel({ modelUrl = null } = {}) {
   const status = ref(/** @type {ModelStatus} */ ('idle'))
@@ -62,7 +61,7 @@ export function useLazyModel({ modelUrl = null } = {}) {
    * motivo da recusa.
    */
   function checkGuards() {
-    if (!modelUrl) return 'no-asset'
+    if (!toValue(modelUrl)) return 'no-asset'
 
     // `navigator.connection` não existe no Safari. Ausência não é recusa: só
     // deixa de haver informação para recusar.

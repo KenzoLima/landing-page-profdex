@@ -18,8 +18,9 @@ npm run preview
 | `npm run dev` | Servidor de desenvolvimento |
 | `npm run build` | `prebuild` verifica o orçamento de assets, depois `vite build` |
 | `npm run check:assets` | Só a verificação de orçamento |
-| `npm run assets:optimize` | Recomprime imagens e regenera a imagem de Open Graph |
-| `npm run model:optimize` | Regenera `public/models/mario-hero.glb` a partir do app |
+| `npm run assets:optimize` | Regenera retratos e sprites a partir da arte do app |
+| `npm run model:optimize` | Regenera os `.glb` de `public/models/` a partir do app |
+| `node scripts/ase-to-png.mjs <a.ase> <b.png> [n]` | Extrai um quadro de um `.ase` do Aseprite |
 | `npm run lint` / `npm run format` | oxlint / prettier |
 
 ## Como se relaciona com o repositório principal
@@ -35,22 +36,82 @@ O que foi copiado de lá, e precisa continuar em sincronia:
 | `src/styles/tokens.css` | `profdex-front/src/style.css` | Só os tokens de marca; os aliases de compatibilidade (`--red`, `--yellow`…) ficaram de fora |
 | `src/styles/gba.css` | `HomeView.vue` | O molde GBA e o botão de pixel, extraídos do `<style scoped>` |
 | `src/data/types.js` | `profdex-front/src/data/types.js` | **Cópia literal** + dois helpers de cor no fim. A roda da landing é derivada de `TYPE_CYCLE`/`strongAgainst()`, nunca digitada |
-| `src/data/professors.js` | `professorTypes.js`, `professorSprites.js` | Ver a correção de contagem abaixo |
-| `public/eagle-ball.png`, `public/professors/*` | `profdex-front/public/` | Recomprimidos |
-| `public/models/mario-hero.glb` | `modelo-mario.glb` | 26,77 MB → 0,41 MB, ver abaixo |
+| `src/data/professors.js` | `professorTypes.js`, `professorSprites.js`, `professorModels.js` | Ver a correção de contagem abaixo |
+| `public/eagle-ball.png`, `public/professors/*-cartoon.*` | `profdex-front/public/` | Recomprimidos por `assets:optimize` |
+| `public/professors/*-pixel*.png` | `assets-src/sprites/` (aqui) | Normalizados para 64×64, ver abaixo |
+| `public/models/*-hero.glb` | `modelo-{mario,eron,gustavo}.glb` | 127 MB → 2,24 MB, ver abaixo |
+| `src/config/model-sizes.js` | — | **Gerado**, medindo os `.glb` publicados |
 
 Os cortes de Elo (`src/content/copy.js` → `pvp.tiers`) vieram de
 `profdex-back/src/battle/elo.ts`, que é a fonte de verdade.
 
-### Duas correções em relação ao briefing
+Os pesados não são versionados aqui em bruto: os `.glb` de 27–74 MB e os PNG
+4096² ficam no app, e este repo guarda o resultado mais os scripts que sabem
+refazê-lo. Os scripts acham o app sozinhos nos lugares de sempre; se o seu clone
+estiver noutro canto, `PROFDEX_FRONT=<caminho> npm run assets:optimize`.
 
-1. **Não são 16 professores.** O `PROFESSOR_TYPES` tem 16 *chaves*, mas
-   `ricardo-petri`/`ricardo` e `t-camis`/`camis` são pares de apelido do mesmo
-   professor (o mapa registra slug e nome). São **14 pessoas**, 3 com arte. A
-   página nunca digita esses números: eles saem de `TOTAL_PROFESSORS` e
-   `LOCKED_COUNT`.
-2. **Os cortes de Ouro e Platina** não estavam no briefing; foram lidos do
-   `elo.ts`.
+**Os sprites são a exceção**: eles moram em `assets-src/sprites/` porque não
+existem em nenhum outro lugar recuperável — são poucos kB cada, e só um dos seis
+está no `profdex-front`.
+
+### Os sprites
+
+Os seis bonecos (três professores × frente e costas) estão versionados em
+[`assets-src/sprites/`](./assets-src/sprites/) — **leia o README de lá antes de
+mexer neles**, tem duas armadilhas registradas que já custaram retrabalho.
+
+Resumo: o `profdex-front` só tem o `gustavo-pixel.png`. Do Gustavo existe a arte
+de autoria em `.ase` (13 quadros de frente, 14 de costas), copiada para cá junto
+com um leitor próprio (`scripts/ase-to-png.mjs`) — a cadeia arte → PNG →
+`public/` é refazível sem abrir o Aseprite. Do Eron e do Mário existem só
+capturas de tela em 3× passadas por um removedor de fundo.
+
+A arte de autoria é **64×64**. Dá para medir que as capturas são 3×: o boneco do
+Eron ocupa 106×192 px, exatamente 3× os 35×64 do Gustavo. Então `assets:optimize`
+devolve cada um à grade nativa e **binariza o alfa** (o removedor de fundo deixa
+~9% dos pixels numa borda macia, e pixel art não tem meio-termo). Os do Gustavo,
+já nativos, passam intactos — reamostrar pixel art correta é sempre perda.
+
+`assets:optimize` também recorta um `-pixel-face.png` de cada sprite de frente: é
+o retrato da seção 3D. O recorte é 46% da ALTURA do boneco (a cabeça é a mesma
+fatia vertical nos três — 38% cortava o cabelo do Mário e do Gustavo, 50% já
+pegava ombro e deixava de ser zoom), mais três linhas transparentes de ar em
+cima, porque o desenho começa em `y=0` e o cabelo encostaria na borda.
+
+Onde cada um entra:
+
+| | Card da Pokédex | Arena | Seção 3D |
+|---|---|---|---|
+| Mário | corpo, frente | frente (adversário, ao fundo) | rosto |
+| Eron | corpo, frente | — | rosto |
+| Gustavo | corpo, frente | **costas** (o seu, em primeiro plano) | rosto |
+
+O enquadramento clássico é esse: o adversário encara você, e a câmera está atrás
+do ombro do seu. Quem diz de que lado cada um está é o **disco no chão**
+(vermelho/azul), não uma moldura — emoldurar um sprite recortado o devolve à
+condição de retrato.
+
+### O disco no chão, que custou duas tentativas
+
+O sprite tem os pés encostados na borda de baixo da própria imagem (a caixa do
+desenho vai de `y=0` a `y=63` num arquivo de 64 px), então **a linha do chão é
+exatamente a base da `<img>`**. Duas coisas quebraram nesse alinhamento:
+
+1. **O disco pintava por cima do boneco.** `::before` é `position: absolute`, e
+   conteúdo posicionado pinta depois de conteúdo não posicionado — mesmo vindo
+   antes no documento. A `<img>` precisou de `position: relative; z-index: 1`.
+2. **`bottom: 9%` e `padding-bottom: 9%` não são a mesma medida.** Porcentagem de
+   `bottom` resolve contra a ALTURA do contêiner; de `padding`, contra a LARGURA
+   — e, num flex item, contra a largura do *flex container* (a linha de ~680 px),
+   não a da própria figure. Dava 61 px de espaço morto e a elipse subia para a
+   canela.
+
+A versão que funciona não usa posicionamento absoluto: disco e boneco são o
+**mesmo item de grade** (`grid-area: 1 / 1`), os dois `align-self: end`, e um
+`translate: 0 50%` leva o centro da elipse até a base — que é a linha dos pés por
+construção, não por um número mantido à mão. O respiro de baixo sai de
+`calc(var(--largura) * 0.091)`, onde 0,091 é meia elipse derivada da mesma
+largura, então os dois continuam casados em qualquer tela.
 
 ## Conteúdo: onde mexer
 
@@ -101,11 +162,38 @@ meio gigabyte. A geometria era irrelevante.
 
 ### O que `npm run model:optimize` faz
 
-Reduz as texturas a 1024/1024/512 e as converte para JPEG, depois comprime a
-geometria com Draco: **26,77 MB → 0,41 MB**, e a memória de GPU cai de ~268 MB
-para ~13 MB. O `gltf-transform optimize` pronto não serve aqui: o passo
-`textureCompress` quebra nestas texturas (`colourspace: parameter space not set`),
-então elas são tratadas com sharp e só a geometria vai pelo CLI.
+Reduz as texturas a 1024/1024/512 e as converte para JPEG, depois solda os
+vértices, simplifica a malha (só acima de 100 mil vértices) e comprime a
+geometria com Draco. A memória de GPU cai de ~268 MB para ~13 MB por modelo:
+
+| | Disco antes | Disco depois | Vértices |
+|---|---|---|---|
+| Mário | 26,77 MB | **0,36 MB** | 32.180 |
+| Eron | 27,01 MB | **0,35 MB** | 31.099 |
+| Gustavo | 73,61 MB | **1,53 MB** | 853.985 → 268.360 |
+
+O `textureCompress` do gltf-transform quebra nestas texturas específicas
+(`colourspace: parameter space not set`), então elas passam pelo sharp e só a
+geometria vai pelos passos da lib.
+
+O Gustavo é 4× os outros porque tem 26× mais vértices — um scan sem
+retopologia. Ele **para em 31%** dos triângulos, não nos 25% pedidos, e afrouxar
+o `error` de 0,001 para 0,01 não move o número em um vértice: o limite é
+topológico (o meshopt trava borda e descontinuidade de UV, e um scan é feito de
+costura), não de erro geométrico. Deixar mais leve exige retopologia na origem.
+
+O tamanho de cada arquivo é gravado em `src/config/model-sizes.js` **medindo o
+resultado**. É esse número que a seção mostra antes de baixar — nunca um valor
+digitado à mão, que envelhece na primeira reotimização.
+
+### Três modelos, um palco
+
+A seção 3D deixa escolher o professor. A regra que importa não é "quantos
+arquivos existem" — é **um palco WebGL por página**, e ela mora em
+`useLazyModel.js`: trava no escopo do módulo, `release()` ao trocar de professor
+(o `v-if` desmonta o palco entre um e outro, e é o desmonte que devolve as
+texturas) e `release()` ao sair da tela. Trocar a URL de um palco vivo vazaria o
+modelo anterior — por isso a troca passa por fechar e reabrir.
 
 ### A cadeia de guardas
 
@@ -137,14 +225,28 @@ material por contrato (`isTexture`).
 
 `scripts/check-asset-budget.mjs` roda no `prebuild` e **quebra o build** se:
 
-- houver mais de um `.glb` em `public/` (dois modelos foi o que estourou a memória);
-- algum `.glb` passar de 5 MB;
+- algum `.glb` passar de **2 MB**;
+- os `.glb` **somados** passarem de **5 MB**;
 - alguma imagem passar de 350 kB;
-- o `MODEL_SIZE_MB` divergir do arquivo real (a página anuncia o tamanho antes de
-  baixar; um aviso que mente é pior que nenhum aviso).
+- o `model-sizes.js` divergir do arquivo real (a página anuncia o tamanho antes de
+  baixar; um aviso que mente é pior que nenhum aviso);
+- algum `sprite`/`image`/`model` do `professors.js` apontar para um arquivo que
+  não existe (card quebrado é pior que card ausente, e um 404 de `.glb` some
+  dentro do loader — o palco fica carregando para sempre, sem erro);
+- o `public/draco/` divergir do decodificador do `three` instalado (versão
+  descasada não quebra o build: quebra o navegador do aluno).
 
 O combinado verbal de "não põe `.glb` pesado" já existia no projeto e não
 segurou. Por isso o limite é código.
+
+**Uma regra mudou.** A versão anterior proibia mais de um `.glb` em `public/` —
+leitura correta do incidente com arquivos de 27–74 MB, quando "quantos arquivos
+existem" era uma proxy honesta para "quanta memória isto pode pedir". Depois do
+`optimize-model.mjs` os três somam 2,24 MB, a contagem deixou de medir o risco, e
+mantê-la custaria justamente o que o briefing pede na seção 3D: o aluno ver **o**
+professor dele. O que impedia o incidente sempre foi um palco por página, e isso
+continua onde estava. O teto passou a ser por arquivo **e somado** — três
+modelos de 1,6 MB passariam num teto só por arquivo e ainda assim seriam demais.
 
 ## Números medidos
 
@@ -159,17 +261,21 @@ Build de produção, Chrome DevTools, **Slow 4G + CPU 4×**, viewport 390×844:
 
 | Chunk | Bruto | Gzip | Quando carrega |
 |---|---|---|---|
-| `index.html` (CSS embutido) | 26,1 kB | 5,9 kB | sempre |
-| `index.js` | 100,5 kB | 38,6 kB | sempre |
+| `index.html` | 2,5 kB | 1,2 kB | sempre |
+| `index.css` | 24,6 kB | 4,9 kB | sempre |
+| `index.js` | 101,4 kB | 38,9 kB | sempre |
 | `gsap` + `ScrollTrigger` | 112,7 kB | 45,0 kB | só ≥860px e sem movimento reduzido |
-| `ModelStage` (three + tresjs) | 949,8 kB | 257,0 kB | só depois do clique em "VER EM 3D" |
+| `ModelStage` (three + tresjs) | 959,6 kB | 259,4 kB | só depois do clique em "VER EM 3D" |
+| Draco (wasm + wrapper) | 478 kB | 154 kB | só junto com o `ModelStage` |
 
-Mais: fonte 12,5 kB, `eagle-ball.png` 9,5 kB.
+Mais: `eagle-ball.png` 6,4 kB, sprites 1,3–2,3 kB cada, retratos ~24 kB cada.
 
-O CSS da entrada é embutido no HTML por um plugin em `vite.config.js`: ele era o
-único recurso bloqueando a renderização. A medida é neutra na métrica (o LCP é
-dominado pelo mount do Vue, não pela rede), mas remove uma viagem de ida e volta
-sem custo de bytes.
+> ⚠️ **O in-line do CSS não está ligado.** Esta seção descrevia um plugin em
+> `vite.config.js` que embutia o CSS da entrada no HTML — o arquivo não existe
+> (a config é `vite.config.mjs`) e o build de hoje emite `index.css` à parte,
+> como a tabela acima mostra. As linhas de LCP/CLS/Lighthouse são de uma medição
+> anterior e não foram refeitas; os tamanhos de chunk são do build atual. Vale
+> uma medição nova antes de citar esses números em qualquer lugar.
 
 **Próxima alavanca, se quiserem mais:** o LCP restante é quase todo execução de
 JavaScript, porque a página é renderizada no cliente. Pré-renderizar o HTML no

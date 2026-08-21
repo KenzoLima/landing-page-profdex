@@ -9,8 +9,9 @@ import PixelButton from '@/components/PixelButton.vue'
     <div class="hero__inner container">
       <div class="hero__art">
         <!-- Esta imagem é o LCP da página, então NÃO é lazy e NÃO é async:
-             ela precisa estar na primeira leva. 9,5 KB depois da quantização
-             para paleta indexada (era 205 KB — ver scripts/optimize-assets.mjs). -->
+             ela precisa estar na primeira leva. 6,4 KB depois da quantização
+             para paleta indexada (era 205 KB — ver
+             scripts/make-placeholder-assets.mjs). -->
         <img
           class="hero__ball pixelated"
           src="/eagle-ball.png"

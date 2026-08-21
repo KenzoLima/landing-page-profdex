@@ -1,11 +1,12 @@
 <script setup>
-import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { model3d } from '@/content/copy.js'
-import { MODEL_URL } from '@/config/model.js'
-import { CAPTURABLE } from '@/data/professors.js'
+import { DEFAULT_MODEL_SLUG, MODEL_ENTRIES } from '@/config/model.js'
+import { getType, legibleColor } from '@/data/types.js'
 import SectionShell from '@/components/SectionShell.vue'
 import PixelButton from '@/components/PixelButton.vue'
-import { MODEL_SIZE_MB, useLazyModel } from '@/three/useLazyModel.js'
+import TypeIcon from '@/components/TypeIcon.vue'
+import { useLazyModel } from '@/three/useLazyModel.js'
 import { prefersReducedMotionNow } from '@/composables/useMotionPreference.js'
 
 // O palco 3D é um `import()` dinâmico: assim `three` + `@tresjs/*` saem do
@@ -14,13 +15,15 @@ import { prefersReducedMotionNow } from '@/composables/useMotionPreference.js'
 // TODO aluno — inclusive os que nunca vão tocar no botão.
 const ModelStage = defineAsyncComponent(() => import('@/three/ModelStage.vue'))
 
-const poster = CAPTURABLE.find((p) => p.slug === 'mario')
-
-// Vírgula decimal: a página é em português e este número aparece para o aluno.
-const tamanhoFormatado = MODEL_SIZE_MB.toLocaleString('pt-BR')
+// Os três professores com modelo. A regra de "um palco por página" não muda por
+// existirem três arquivos: `useLazyModel` guarda uma trava no escopo do módulo,
+// e trocar de professor DERRUBA o palco anterior antes de montar o próximo —
+// nunca há dois contextos WebGL vivos, que é o que estourou a memória na arena.
+const escolhido = ref(DEFAULT_MODEL_SLUG)
+const atual = computed(() => MODEL_ENTRIES.find((m) => m.slug === escolhido.value) ?? null)
 
 const { status, reason, activate, release, markReady, markError } = useLazyModel({
-  modelUrl: MODEL_URL,
+  modelUrl: () => atual.value?.url ?? null,
 })
 
 const progress = ref(0)
@@ -34,6 +37,32 @@ const refusalMessage = computed(() =>
     : '',
 )
 
+// Vírgula decimal: a página é em português e este número aparece para o aluno.
+const tamanhoFormatado = computed(() => atual.value?.sizeMb.toLocaleString('pt-BR') ?? '')
+
+/**
+ * Cor legível do tipo primário — a mesma regra da roda e das badges.
+ *
+ * Vai em PRIMEIRO PLANO (borda e ícone do botão), então passa pelo `legibleColor`:
+ * a paleta canônica dos tipos foi desenhada para preencher área, e o NPI
+ * (`#495057`) sobre o fundo escuro daria 1,7:1.
+ */
+function corDoTipo(types) {
+  const tipo = getType(types[0])
+  return tipo ? legibleColor(tipo.color) : 'var(--unifil-gold)'
+}
+
+/**
+ * Cor CANÔNICA do tipo — a placa atrás do rosto.
+ *
+ * Aqui é o contrário: a cor preenche área, que é exatamente para o que a paleta
+ * foi desenhada. Clarear com `legibleColor` deixaria a placa lavada e diferente
+ * da do card da Pokédex, que usa a cor crua.
+ */
+function corPlacaDoTipo(types) {
+  return getType(types[0])?.color ?? 'var(--surface-border)'
+}
+
 // Com movimento reduzido o modelo carrega, mas fica parado: quem pediu menos
 // movimento continua podendo ver o 3D — girando por conta própria.
 const autoRotate = computed(() => !prefersReducedMotionNow())
@@ -41,6 +70,28 @@ const autoRotate = computed(() => !prefersReducedMotionNow())
 function open() {
   progress.value = 0
   activate()
+}
+
+/**
+ * Troca de professor.
+ *
+ * Com o palco fechado é só mudar a seleção. Com o palco ABERTO, o modelo velho
+ * precisa ser destruído antes de o novo montar — daí o `release()` seguido de
+ * `activate()` no tick seguinte: o `v-if` do template desmonta o `ModelStage`
+ * entre os dois, e é esse desmonte que dispara o `dispose` das texturas.
+ * Reaproveitar o mesmo palco trocando só a URL vazaria o modelo anterior.
+ */
+async function escolher(slug) {
+  if (slug === escolhido.value) return
+
+  const estavaAberto = isOpen.value
+  if (estavaAberto) release()
+  escolhido.value = slug
+
+  if (estavaAberto) {
+    await nextTick()
+    open()
+  }
 }
 
 onMounted(() => {
@@ -74,27 +125,51 @@ watch(status, (value) => {
     <template #lede>{{ model3d.desc }}</template>
 
     <div ref="sectionEl" class="model gba-frame">
+      <!-- Seletor de professor. Cada botão traz o ícone do TIPO na cor do tipo:
+           é a mesma chave visual das badges e da roda, então quem já rolou até
+           aqui reconhece "o de Algoritmos" sem ler o nome. O peso fica no botão
+           de propósito — a escolha entre 0,35 MB e 1,53 MB é do aluno, e ele só
+           pode fazê-la se souber o número ANTES de tocar. -->
+      <div v-if="MODEL_ENTRIES.length > 1" class="picker" role="group" :aria-label="model3d.pickerLabel">
+        <button
+          v-for="entry in MODEL_ENTRIES"
+          :key="entry.slug"
+          type="button"
+          class="picker__btn"
+          :class="{ 'picker__btn--on': entry.slug === escolhido }"
+          :style="{ '--tipo': corDoTipo(entry.types) }"
+          :aria-pressed="entry.slug === escolhido"
+          @click="escolher(entry.slug)"
+        >
+          <TypeIcon :type="entry.types[0]" :size="18" />
+          <span class="picker__name">{{ entry.name }}</span>
+          <span class="picker__size">{{ entry.sizeMb.toLocaleString('pt-BR') }} MB</span>
+        </button>
+      </div>
+
       <!-- Estado inicial: uma IMAGEM. Nunca um canvas vazio esperando. -->
-      <div v-if="!isOpen" class="model__poster">
-        <picture>
-          <source :srcset="poster.image" type="image/webp" />
-          <img
-            :src="poster.fallback"
-            :alt="`Arte do professor ${poster.name}`"
-            width="512"
-            height="512"
-            loading="lazy"
-            decoding="async"
-          />
-        </picture>
+      <div
+        v-if="!isOpen && atual"
+        class="model__poster"
+        :style="{ '--tipo-atual': corPlacaDoTipo(atual.types) }"
+      >
+        <img
+          class="pixelated"
+          :src="atual.poster"
+          :alt="`Rosto do professor ${atual.name} em pixel art`"
+          width="35"
+          height="35"
+          loading="lazy"
+          decoding="async"
+        />
 
         <div class="model__actions">
-          <PixelButton v-if="MODEL_URL" variant="ghost" @click="open">
+          <PixelButton variant="ghost" @click="open">
             {{ model3d.cta }}
           </PixelButton>
           <p class="model__hint">
             {{ model3d.ctaHint }}
-            <span v-if="MODEL_URL"> Cerca de {{ tamanhoFormatado }} MB.</span>
+            <span> Cerca de {{ tamanhoFormatado }} MB.</span>
           </p>
           <p v-if="refusalMessage" class="model__refusal" role="status">
             {{ refusalMessage }}
@@ -102,9 +177,10 @@ watch(status, (value) => {
         </div>
       </div>
 
-      <div v-else class="model__stage">
+      <div v-else-if="atual" class="model__stage">
         <ModelStage
-          :model-path="MODEL_URL"
+          :key="atual.slug"
+          :model-path="atual.url"
           :auto-rotate="autoRotate"
           @ready="markReady"
           @error="markError"
@@ -126,6 +202,10 @@ watch(status, (value) => {
           <PixelButton variant="ghost" @click="release">{{ model3d.close }}</PixelButton>
         </div>
       </div>
+
+      <!-- Sem nenhum modelo gerado a seção não some: ela vira o que já era no
+           estado de recusa — texto, sem botão que não tem o que carregar. -->
+      <p v-else class="model__refusal" role="status">{{ model3d.refusals['no-asset'] }}</p>
     </div>
   </SectionShell>
 </template>
@@ -135,6 +215,60 @@ watch(status, (value) => {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+.picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.picker__btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-deep);
+  border: 2px solid var(--surface-border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  transition: border-color var(--dur-fast) var(--ease-pixel);
+}
+
+.picker__btn:hover {
+  border-color: var(--tipo);
+}
+
+.picker__btn:focus-visible {
+  outline: 2px solid var(--unifil-gold);
+  outline-offset: 2px;
+}
+
+/* O selecionado ganha a cor do tipo na borda E no ícone. A borda sozinha some
+   para quem não distingue as cores da paleta — o `aria-pressed` cobre o leitor
+   de tela, e o peso do nome cobre o olho. */
+.picker__btn--on {
+  border-color: var(--tipo);
+  color: var(--text-primary);
+}
+
+.picker__btn svg {
+  color: var(--tipo);
+  flex-shrink: 0;
+}
+
+.picker__name {
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.picker__size {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .model__poster {
@@ -152,9 +286,15 @@ watch(status, (value) => {
 .model__poster img {
   width: 100%;
   aspect-ratio: 1;
-  object-fit: cover;
+  /* `contain`: o recorte do rosto é transparente em volta, e `cover` cortaria o
+     cabelo para preencher o quadrado. */
+  object-fit: contain;
+  padding: var(--space-3);
   border: 3px solid var(--surface-border);
   border-radius: var(--radius);
+  /* Placa na cor do tipo do professor selecionado, como nos cards da Pokédex —
+     é o que amarra as duas seções na mesma leitura. */
+  background: color-mix(in srgb, var(--tipo-atual) 22%, var(--bg-deep));
 }
 
 .model__actions {

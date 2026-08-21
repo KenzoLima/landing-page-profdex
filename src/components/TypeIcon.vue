@@ -30,12 +30,11 @@ const ICONS = {
       { d: 'M4 4h6a2 2 0 1 1 4 0h6v6a2 2 0 1 0 0 4v6h-6a2 2 0 1 0-4 0H4v-6a2 2 0 1 0 0-4V4z' },
     ],
   ],
-  // Eixos, uma curva e a tangente: derivada, o gesto do Cálculo.
-  calculo: [
-    ['path', { d: 'M4 4v16h16' }],
-    ['path', { d: 'M4 18C10 18 12 6 20 6' }],
-    ['path', { d: 'M7 20l10-12' }],
-  ],
+  // O sinal de integral: o símbolo que o curso inteiro reconhece de longe.
+  // Traço único, sem eixos por baixo — a leitura em 20px depende de a silhueta
+  // ser uma coisa só, e a versão com eixos + tangente virava rabisco nesse
+  // tamanho.
+  calculo: [['path', { d: 'M16 4c0-1.1-.9-2-2-2s-3 1-3 4v12c0 3-1.5 4-3 4s-2-.9-2-2' }]],
   // Rede neural: três camadas de nós ligadas.
   'ia-ml': [
     ['circle', { cx: 5, cy: 7, r: 2 }],

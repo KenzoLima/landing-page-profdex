@@ -1,6 +1,6 @@
 <script setup>
 import { battle } from '@/content/copy.js'
-import { CAPTURABLE } from '@/data/professors.js'
+import { BY_SLUG } from '@/data/professors.js'
 import SectionShell from '@/components/SectionShell.vue'
 import TypeBadge from '@/components/TypeBadge.vue'
 import { useReveal } from '@/composables/useReveal.js'
@@ -8,12 +8,16 @@ import { useReveal } from '@/composables/useReveal.js'
 // Enquadramento clássico: adversário em cima à direita, o seu em baixo à
 // esquerda, cada um com sua barra de HP do lado oposto.
 //
-// Nota sobre a arte: os arquivos `-cartoon` são cards quadrados com fundo
-// branco e moldura de QR — não são recortes de personagem com fundo
-// transparente. Colocá-los "de pé" num palco ficaria errado; emoldurados como
-// retrato de combatente, funcionam e ainda respeitam a arte original.
-const enemy = CAPTURABLE.find((p) => p.slug === 'mario')
-const player = CAPTURABLE.find((p) => p.slug === 'gustavo')
+// A arte aqui é o BONECO, não o cartoon — é o que o app desenha na arena desde
+// que os `.glb` saíram de lá, e o que o briefing pede nesta seção. Um retrato
+// emoldurado em QR contaria a coisa errada: dá para reconhecer o professor, mas
+// não parece uma partida.
+//
+// O adversário aparece de FRENTE (ele encara você) e o seu, de COSTAS em
+// primeiro plano — a câmera está atrás do seu ombro. É o enquadramento que todo
+// mundo reconhece sem legenda, e é o que o app faz.
+const enemy = BY_SLUG.mario
+const player = BY_SLUG.gustavo
 
 // A barra do adversário desce quando a seção entra na tela. É CSS puro
 // (transition de width com steps): não vale carregar uma engine de animação
@@ -37,17 +41,15 @@ const { el } = useReveal({ threshold: 0.4 })
           </ul>
         </div>
         <figure class="fighter fighter--enemy">
-          <picture>
-            <source :srcset="enemy.image" type="image/webp" />
-            <img
-              :src="enemy.fallback"
-              :alt="`Professor ${enemy.name}, o adversário`"
-              width="512"
-              height="512"
-              loading="lazy"
-              decoding="async"
-            />
-          </picture>
+          <img
+            class="pixelated"
+            :src="enemy.sprite"
+            :alt="`Professor ${enemy.name}, o adversário`"
+            width="64"
+            height="64"
+            loading="lazy"
+            decoding="async"
+          />
         </figure>
       </div>
 
@@ -55,17 +57,15 @@ const { el } = useReveal({ threshold: 0.4 })
 
       <div class="arena__row arena__row--player">
         <figure class="fighter fighter--player">
-          <picture>
-            <source :srcset="player.image" type="image/webp" />
-            <img
-              :src="player.fallback"
-              :alt="`Professor ${player.name}, o seu combatente`"
-              width="512"
-              height="512"
-              loading="lazy"
-              decoding="async"
-            />
-          </picture>
+          <img
+            class="pixelated"
+            :src="player.spriteBack"
+            :alt="`Professor ${player.name}, o seu combatente, visto de costas`"
+            width="64"
+            height="64"
+            loading="lazy"
+            decoding="async"
+          />
         </figure>
         <div class="hp hp--player">
           <p class="hp__name">{{ player.name }}</p>
@@ -128,28 +128,117 @@ const { el } = useReveal({ threshold: 0.4 })
   flex-direction: row;
 }
 
+/* A largura vira variável porque o respiro de baixo é DERIVADO dela: 0,091 é
+   meia elipse (largura 62% ÷ proporção 3,4 ÷ 2). Assim os dois números não podem
+   sair de sincronia quando alguém mexer no tamanho do combatente.
+
+   Não dá para usar `padding-bottom: 9%` aqui: porcentagem de padding resolve
+   contra a largura do CONTÊINER — que é a linha flex de ~680 px, não os 168 px da
+   figure. Dava 61 px de espaço morto embaixo de cada boneco. */
 .fighter {
+  --largura: clamp(96px, 26vw, 168px);
   flex-shrink: 0;
-  width: clamp(96px, 26vw, 168px);
+  width: var(--largura);
+  position: relative;
+  display: grid;
+  place-items: end center;
+  /* Espaço para a metade de baixo do disco: o sprite tem os pés encostados na
+     borda inferior da própria imagem (a caixa do desenho vai de y=0 a y=63 num
+     arquivo de 64 px), então a linha do chão é exatamente a base da <img>. */
+  padding-bottom: calc(var(--largura) * 0.091);
 }
 
 .fighter img {
   width: 100%;
   aspect-ratio: 1;
-  object-fit: cover;
-  border: 3px solid var(--surface-border);
-  border-radius: var(--radius);
+  /* `contain`: o boneco é corpo inteiro sobre transparência. `cover` cortaria
+     os pés, que é justamente o que faz um sprite parecer um recorte. */
+  object-fit: contain;
+  /* Sombra dura, sem blur: sombra de sprite, não de cartão. */
+  filter: drop-shadow(3px 3px 0 rgb(0 0 0 / 45%));
+  /* O disco é `position: absolute` e, sem isto, pintaria POR CIMA do boneco —
+     conteúdo posicionado vem depois de conteúdo não posicionado na ordem de
+     pintura, mesmo estando antes no documento. O chão precisa ficar atrás de
+     quem pisa nele. */
+  position: relative;
+  z-index: 1;
 }
 
-/* O adversário fica espelhado, como se estivesse virado para o jogador — é o
-   que o enquadramento clássico faz com o sprite de costas. */
-.fighter--enemy img {
-  transform: scaleX(-1);
-  border-color: var(--error);
+/* Sem moldura em volta do boneco: ele é recortado, e emoldurá-lo o devolveria à
+   condição de retrato. Quem diz de que lado cada um está é o DISCO no chão —
+   vermelho para o adversário, azul para o seu —, que é como a arena do app
+   marca os dois lados.
+
+   O disco fica atrás pelo `::before` da figure e não como `background` da img,
+   porque precisa ser uma elipse achatada no pé do boneco, não um retângulo. */
+/* Disco e boneco ocupam a MESMA célula da grade, os dois alinhados ao fim dela.
+   Assim a base da elipse e a base da <img> são a mesma linha por construção — não
+   por um número que precisa ser mantido em sincronia.
+
+   Foi o que a primeira tentativa errou: `bottom: 9%` num elemento absoluto
+   resolve contra a ALTURA do contêiner, enquanto `padding-bottom: 9%` resolve
+   contra a LARGURA. Dois eixos, mesmo número, e a elipse subia para a canela.
+
+   O `translate: 0 50%` desce meia altura, levando o CENTRO da elipse até a linha
+   dos pés — é onde fica o contato com o chão. A metade de baixo cai dentro do
+   `padding-bottom` da figure, que é 9% da largura ≈ exatamente meia elipse
+   (0,62 × 1/3,4 ÷ 2 = 0,091). Os dois vêm da largura, então continuam casados em
+   qualquer tamanho de tela. */
+.fighter::before,
+.fighter img {
+  grid-area: 1 / 1;
+}
+
+.fighter::before {
+  content: '';
+  align-self: end;
+  width: 62%;
+  aspect-ratio: 3.4 / 1;
+  translate: 0 50%;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--disco) 50%, transparent) 0%,
+    color-mix(in srgb, var(--disco) 22%, transparent) 55%,
+    transparent 75%
+  );
+}
+
+.fighter--enemy {
+  --disco: var(--error);
+}
+
+.fighter--player {
+  --disco: var(--ds-blue);
+}
+
+/* O seu combatente está em PRIMEIRO PLANO: a câmera está atrás do ombro dele.
+   Se os dois tivessem o mesmo tamanho, a cena viraria dois bonecos lado a lado
+   em vez de uma arena com profundidade. */
+.fighter--player {
+  --largura: clamp(120px, 32vw, 208px);
+}
+
+/* Respiração de sprite parado: 2 quadros, como uma animação de idle de GBA.
+   `steps(2)` em vez de uma curva contínua — um sprite que desliza suavemente
+   para cima e para baixo é exatamente o que um sprite de 8 bits não faz. */
+.fighter img {
+  animation: sprite-idle 1.8s steps(2, end) infinite;
 }
 
 .fighter--player img {
-  border-color: var(--ds-blue);
+  /* Defasado, para os dois não pulsarem no mesmo quadro. */
+  animation-delay: 0.9s;
+}
+
+@keyframes sprite-idle {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -3px;
+  }
 }
 
 .hp {
@@ -313,6 +402,10 @@ const { el } = useReveal({ threshold: 0.4 })
 @media (prefers-reduced-motion: reduce) {
   .hp__fill {
     transition: none;
+  }
+
+  .fighter img {
+    animation: none;
   }
 }
 </style>
