@@ -215,7 +215,6 @@ import PixelButton from '@/components/PixelButton.vue'
 }
 
 .hero__lede {
-  max-width: 46ch;
   margin-inline: auto;
   margin-top: var(--space-3);
   color: var(--text-primary);
@@ -271,11 +270,11 @@ import PixelButton from '@/components/PixelButton.vue'
   }
 
   .hero__text {
-    /* Teto para a coluna de texto: sem ele, o item flex sem `flex-grow`
-       ainda mede sua caixa pelo conteúdo mais largo (o `<h1>` em pixel),
-       que é bem mais largo que qualquer linha de parágrafo — sobra vão
-       morto entre o fim do texto e a borda direita do hero. */
-    max-width: 640px;
+    /* Cresce para preencher o espaço que sobra ao lado da bola, em vez de um
+       teto fixo em px: era ele que deixava vão morto entre o fim do texto e
+       a borda direita do hero quando a fonte do corpo mudou de largura. */
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .hero__lede {

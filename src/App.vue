@@ -3,6 +3,7 @@ import HeroSection from '@/sections/HeroSection.vue'
 import HowItWorksSection from '@/sections/HowItWorksSection.vue'
 import TypeWheelSection from '@/sections/TypeWheelSection.vue'
 import BattleSection from '@/sections/BattleSection.vue'
+import BattleVideoSection from '@/sections/BattleVideoSection.vue'
 import ModelSection from '@/sections/ModelSection.vue'
 import PvpSection from '@/sections/PvpSection.vue'
 import ScoreSection from '@/sections/ScoreSection.vue'
@@ -33,6 +34,7 @@ import SiteFooter from '@/sections/SiteFooter.vue'
     <HowItWorksSection />
     <TypeWheelSection />
     <BattleSection />
+    <BattleVideoSection />
     <ModelSection />
     <PvpSection />
     <ScoreSection />

@@ -8,10 +8,10 @@ import { COMP_URL, UNIFIL_URL } from '@/config/links.js'
     <div class="container footer__inner">
       <div class="footer__brand">
         <img
-          class="footer__ball pixelated"
-          src="/eagle-ball.png"
+          class="footer__ball"
+          src="/logo-unifil.png"
           alt=""
-          width="40"
+          width="52"
           height="40"
           loading="lazy"
         />
@@ -54,6 +54,10 @@ import { COMP_URL, UNIFIL_URL } from '@/config/links.js'
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.footer__ball {
+  flex-shrink: 0;
 }
 
 .footer__project {

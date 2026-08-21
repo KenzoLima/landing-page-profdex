@@ -33,7 +33,11 @@ body {
   min-height: 100%;
   font-family: var(--font-body);
   font-size: var(--fs-body);
-  line-height: 1.65;
+  /* Press Start 2P já vem com entrelinha apertada por desenho (ver a regra
+   * `.pixel` mais abaixo) — 1.9 em vez do 1.65 de uma fonte comum, senão
+   * parágrafo corrido vira parede de pixel colada. */
+  line-height: 1.9;
+  letter-spacing: 0.5px;
   background: var(--bg-deep);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;

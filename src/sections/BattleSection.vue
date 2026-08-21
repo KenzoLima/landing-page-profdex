@@ -30,51 +30,53 @@ const { el } = useReveal({ threshold: 0.4 })
     <template #lede>{{ battle.desc }}</template>
 
     <div ref="el" class="arena gba-frame">
-      <div class="arena__row arena__row--enemy">
-        <div class="hp">
-          <p class="hp__name">{{ enemy.name }}</p>
-          <div class="hp__track" role="img" :aria-label="`Adversário ${enemy.name} com 42% de HP`">
-            <span class="hp__fill hp__fill--enemy" />
+      <div class="arena__field">
+        <div class="arena__row arena__row--enemy">
+          <div class="hp-window hp-window--enemy">
+            <p class="hp-window__name">{{ enemy.name }}</p>
+            <div class="hp-window__track" role="img" :aria-label="`Adversário ${enemy.name} com 42% de HP`">
+              <span class="hp-window__fill hp-window__fill--enemy" />
+            </div>
+            <ul class="hp-window__types">
+              <li v-for="t in enemy.types" :key="t"><TypeBadge :type-id="t" size="sm" /></li>
+            </ul>
           </div>
-          <ul class="hp__types">
-            <li v-for="t in enemy.types" :key="t"><TypeBadge :type-id="t" size="sm" /></li>
-          </ul>
+          <figure class="fighter fighter--enemy">
+            <img
+              class="pixelated"
+              :src="enemy.sprite"
+              :alt="`Professor ${enemy.name}, o adversário`"
+              width="64"
+              height="64"
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
         </div>
-        <figure class="fighter fighter--enemy">
-          <img
-            class="pixelated"
-            :src="enemy.sprite"
-            :alt="`Professor ${enemy.name}, o adversário`"
-            width="64"
-            height="64"
-            loading="lazy"
-            decoding="async"
-          />
-        </figure>
-      </div>
 
-      <hr class="rule-dashed" />
+        <p class="arena__vs" aria-hidden="true">VS</p>
 
-      <div class="arena__row arena__row--player">
-        <figure class="fighter fighter--player">
-          <img
-            class="pixelated"
-            :src="player.spriteBack"
-            :alt="`Professor ${player.name}, o seu combatente, visto de costas`"
-            width="64"
-            height="64"
-            loading="lazy"
-            decoding="async"
-          />
-        </figure>
-        <div class="hp hp--player">
-          <p class="hp__name">{{ player.name }}</p>
-          <div class="hp__track" role="img" :aria-label="`${player.name} com 88% de HP`">
-            <span class="hp__fill hp__fill--player" />
+        <div class="arena__row arena__row--player">
+          <figure class="fighter fighter--player">
+            <img
+              class="pixelated"
+              :src="player.spriteBack"
+              :alt="`Professor ${player.name}, o seu combatente, visto de costas`"
+              width="64"
+              height="64"
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
+          <div class="hp-window hp-window--player">
+            <p class="hp-window__name">{{ player.name }}</p>
+            <div class="hp-window__track" role="img" :aria-label="`${player.name} com 88% de HP`">
+              <span class="hp-window__fill hp-window__fill--player" />
+            </div>
+            <ul class="hp-window__types">
+              <li v-for="t in player.types" :key="t"><TypeBadge :type-id="t" size="sm" /></li>
+            </ul>
           </div>
-          <ul class="hp__types">
-            <li v-for="t in player.types" :key="t"><TypeBadge :type-id="t" size="sm" /></li>
-          </ul>
         </div>
       </div>
 
@@ -84,22 +86,22 @@ const { el } = useReveal({ threshold: 0.4 })
           <dd>{{ stat.hint }}</dd>
         </div>
       </dl>
-    </div>
 
-    <div class="moves">
-      <div class="moves__block gba-frame gba-frame--plain">
-        <h3 class="moves__title">Categorias de golpe</h3>
-        <ul class="moves__tags">
-          <li v-for="c in battle.moveCategories" :key="c" class="tag">{{ c }}</li>
-        </ul>
-      </div>
+      <div class="moves">
+        <div class="moves__block">
+          <h3 class="moves__title">Categorias de golpe</h3>
+          <ul class="moves__tags">
+            <li v-for="c in battle.moveCategories" :key="c" class="tag">{{ c }}</li>
+          </ul>
+        </div>
 
-      <div class="moves__block gba-frame gba-frame--plain">
-        <h3 class="moves__title">Efeitos de status</h3>
-        <ul class="moves__tags">
-          <li v-for="e in battle.effects" :key="e" class="tag tag--muted">{{ e }}</li>
-        </ul>
-        <p class="moves__note">{{ battle.effectsNote }}</p>
+        <div class="moves__block">
+          <h3 class="moves__title">Efeitos de status</h3>
+          <ul class="moves__tags">
+            <li v-for="e in battle.effects" :key="e" class="tag tag--muted">{{ e }}</li>
+          </ul>
+          <p class="moves__note">{{ battle.effectsNote }}</p>
+        </div>
       </div>
     </div>
 
@@ -111,21 +113,46 @@ const { el } = useReveal({ threshold: 0.4 })
 .arena {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
+}
+
+/* O campo é uma peça só: as duas fileiras mais o "VS" central ficam
+   deliberadamente coladas — é essa proximidade que lê como UM confronto em
+   vez de duas fileiras soltas dentro do mesmo quadro. */
+.arena__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .arena__row {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.arena__row--enemy {
-  flex-direction: row;
+  /* `flex-start`: a janela de HP gruda no topo da fileira, o boneco pisa no
+     chão dela. Era `center` — os dois alinhados no meio é o que fazia a cena
+     parecer dois elementos soltos lado a lado em vez de um HUD sobre um
+     personagem, que é como todo jogo de Pokémon encaixa a dupla. */
+  align-items: flex-start;
+  gap: var(--space-2);
 }
 
 .arena__row--player {
-  flex-direction: row;
+  /* A fileira do jogador inverte o eixo vertical: a janela gruda embaixo,
+     porque é a câmera-por-cima-do-ombro que dá profundidade — o boneco em
+     primeiro plano, o HUD dele no rodapé da cena, como o canto inferior
+     direito de uma tela de batalha de verdade. */
+  align-items: flex-end;
+}
+
+/* Separador central, não uma linha: um "VS" é o que uma tela de confronto
+   mostra entre os dois lados, e ele substitui o `<hr>` genérico que soltava
+   as duas fileiras uma da outra sem dizer o que as une. */
+.arena__vs {
+  align-self: center;
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  color: var(--unifil-gold);
+  opacity: 0.6;
+  letter-spacing: 2px;
 }
 
 /* A largura vira variável porque o respiro de baixo é DERIVADO dela: 0,091 é
@@ -241,42 +268,49 @@ const { el } = useReveal({ threshold: 0.4 })
   }
 }
 
-.hp {
+/* A janela de HP: antes era um bloco solto sem contorno, flutuando ao lado do
+   boneco sem nada que dissesse "isto é um painel". Uma tela de batalha de
+   verdade sempre marca essa caixa — é o que separa "informação de HUD" de
+   "legenda decorativa". Bisel duplo, mesmo vocabulário do `.gba-frame`, só
+   que compacto o bastante para caber ao lado do combatente. */
+.hp-window {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
   min-width: 0;
   /* Sem teto, numa tela de 1920px a barra de HP esticava por ~800px e o
      enquadramento deixava de parecer uma tela de batalha. */
-  max-width: 420px;
+  max-width: 320px;
+  background: var(--bg-deep);
+  border: 3px solid var(--surface-border);
+  box-shadow: inset 0 0 0 1px var(--unifil-gold);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
 }
 
-.hp--player {
+.hp-window--player {
   margin-left: auto;
-}
-
-.hp--player {
   align-items: flex-end;
   text-align: right;
 }
 
-.hp__name {
+.hp-window__name {
   font-family: var(--font-pixel);
   font-size: var(--fs-pixel-sm);
   line-height: 1.6;
 }
 
-.hp__track {
+.hp-window__track {
   width: 100%;
-  height: 14px;
-  background: var(--bg-deep);
+  height: 12px;
+  background: var(--surface);
   border: 2px solid var(--surface-border);
   border-radius: 2px;
   overflow: hidden;
 }
 
-.hp__fill {
+.hp-window__fill {
   display: block;
   height: 100%;
   width: 100%;
@@ -285,32 +319,33 @@ const { el } = useReveal({ threshold: 0.4 })
   transition: width 1.2s var(--ease-pixel);
 }
 
-.hp__fill--enemy {
+.hp-window__fill--enemy {
   background: var(--error);
 }
 
-.hp__fill--player {
+.hp-window__fill--player {
   background: var(--success-text);
 }
 
 /* O drenar só acontece quando a seção aparece — antes disso as barras ficam
    cheias, que é o estado correto para quem tem movimento reduzido. */
-[data-reveal='shown'] .hp__fill--enemy {
+[data-reveal='shown'] .hp-window__fill--enemy {
   width: 42%;
 }
 
-[data-reveal='shown'] .hp__fill--player {
+[data-reveal='shown'] .hp-window__fill--player {
   width: 88%;
 }
 
-.hp__types {
+.hp-window__types {
   display: flex;
   gap: var(--space-1);
   list-style: none;
   flex-wrap: wrap;
+  margin-top: var(--space-1);
 }
 
-.hp--player .hp__types {
+.hp-window--player .hp-window__types {
   justify-content: flex-end;
 }
 
@@ -342,15 +377,27 @@ const { el } = useReveal({ threshold: 0.4 })
   color: var(--text-muted);
 }
 
+/* Os golpes vivem DENTRO do mesmo `.gba-frame` da arena — antes eram duas
+   caixas próprias empilhadas abaixo dela, e três molduras competindo é o que
+   fazia a seção parecer solta. Uma tela de batalha de verdade também separa
+   "campo" de "menu de golpes", mas como DUAS METADES da MESMA tela, nunca
+   como cartões independentes boiando um embaixo do outro. */
 .moves {
   display: grid;
-  gap: var(--space-3);
-  margin-top: var(--space-4);
+  gap: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 2px dashed var(--surface-border);
 }
 
 @media (min-width: 720px) {
   .moves {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    gap: var(--space-5);
+  }
+
+  .moves__block:first-child {
+    padding-right: var(--space-5);
+    border-right: 2px dashed var(--surface-border);
   }
 }
 
@@ -396,7 +443,6 @@ const { el } = useReveal({ threshold: 0.4 })
 }
 
 .training {
-  margin-top: var(--space-3);
   font-family: var(--font-pixel);
   font-size: var(--fs-body-sm);
   line-height: 1.7;
@@ -406,7 +452,7 @@ const { el } = useReveal({ threshold: 0.4 })
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hp__fill {
+  .hp-window__fill {
     transition: none;
   }
 

@@ -23,10 +23,10 @@ const { active: creditsActive } = useSectionActive('creditos')
            na imagem: ele não depende do que está visível. -->
       <a class="site-nav__brand" href="#topo" :aria-label="nav.brandLabel">
         <img
-          class="site-nav__ball pixelated"
-          src="/eagle-ball.png"
+          class="site-nav__ball"
+          src="/logo-unifil.png"
           alt=""
-          width="28"
+          width="36"
           height="28"
           decoding="sync"
         />
@@ -147,7 +147,7 @@ const { active: creditsActive } = useSectionActive('creditos')
 }
 
 .site-nav__ball {
-  width: 28px;
+  width: auto;
   height: 28px;
   flex-shrink: 0;
 }

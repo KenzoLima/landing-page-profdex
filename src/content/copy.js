@@ -130,6 +130,19 @@ export const battle = {
   training: 'Contra a IA existe como modo treino. Não ranqueia.',
 }
 
+/* Vídeo vertical da batalha — o arquivo ainda não existe. Esta seção é o
+ * encaixe: o player fica pronto (poster, botão de play, controles, badge de
+ * status), só falta a URL entrar em config/links.js quando o vídeo for
+ * gravado. Ver a nota de integração em BattleVideoSection.vue. */
+export const battleVideo = {
+  kicker: 'Veja em ação',
+  title: 'A batalha, em vídeo',
+  desc: 'Um vídeo vertical mostrando o fluxo básico — do quiz à captura — e como a batalha funciona por dentro.',
+  badge: 'Em breve',
+  playLabel: 'Reproduzir vídeo',
+  placeholder: 'O vídeo entra aqui assim que estiver pronto — gravado no formato de story, vertical.',
+}
+
 export const pvp = {
   kicker: 'PvP ranqueado',
   title: 'Aluno contra aluno, em tempo real',
@@ -312,21 +325,17 @@ export const credits = {
 
   institutionTitle: 'Instituição',
   institutionName: 'UniFil',
-  institutionDesc: 'O ProfDex existe para a Semana Tecnológica da UniFil.',
+  institutionDesc: 'Apoio da Universidade Filadelfia e o Grupo de Pesquisa de Realidade Aumentada.',
   institutionLink: 'unifil.br',
 
   projectTitle: 'Projeto',
-  projectDesc: 'O código desta página é aberto: dá para abrir, ler e clonar.',
-  projectLink: 'Código no GitHub',
-  // Fonte: public/fonts/README.md. As duas são SIL Open Font License 1.1, que
-  // é o que permite versionar os .woff2 aqui dentro.
-  fontsNote: 'Tipografia: Press Start 2P e IBM Plex Sans, ambas sob SIL Open Font License 1.1.',
+  projectDesc: 'O ProfDex foi desenvolvido para a TechFil, antiga Semana Tecnológica da UniFil, nesse app integramos socialização, Realidade Aumentada, Revisão dos estudos e combate PvP, buscando juntar o games que tanto amos com os estudos.',
 }
 
 export const footer = {
   project: 'ProfDex',
   event: 'TechFil · UniFil',
-  compLabel: 'Instagram computação',
+  compLabel: 'Instagram de computação',
   siteLabel: 'unifil.br',
   colophon: 'Feito por alunos, para alunos — com uma quantidade defensável de nostalgia.',
 }
