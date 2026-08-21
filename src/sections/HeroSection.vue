@@ -46,20 +46,79 @@ import PixelButton from '@/components/PixelButton.vue'
   /* A borda inferior grossa em `--surface` é o mesmo corte da home do app:
      é ela que faz o hero parecer a tampa de um console. */
   border-bottom: 6px solid var(--surface);
+  /* Fio dourado logo acima do corte: a aresta usinada entre a tampa e o resto
+     do aparelho. Dois pixels — o suficiente para o corte parecer fabricado em
+     vez de cortado com `border-bottom`. */
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--unifil-gold) 45%, transparent);
   padding-block: var(--space-5) var(--space-6);
   position: relative;
   overflow: hidden;
 }
 
-/* Scanlines: 3px de linha a cada 6px, a 6% de opacidade. Textura de tela de
-   console sem virar ornamento — o PRODUCT.md pede que o retrô oriente a tarefa,
-   não compita com ela. */
-.hero::after {
+/* Placa de circuito impresso, no próprio laranja da marca.
+ *
+ * O laranja chapado tinha 500px de altura e nada acontecendo neles. Aqui ele
+ * vira material: trilhas gravadas numa grade irregular, vias metálicas e um
+ * barramento fora de fase.
+ *
+ * A REGRA QUE DECIDE TODAS AS CORES DAQUI: a textura só pode ESCURECER.
+ *
+ * O "DEX" dourado sobre o laranja já vive em 3,07:1 — o piso da WCAG para
+ * texto grande é 3:1, então não há folga nenhuma. Clarear o fundo aproxima o
+ * laranja do dourado e derruba o par: medi 2,66:1 com uma ilha clara de 7%
+ * atrás da palavra. Escurecer faz o contrário — afasta os dois — e sobe para
+ * ~3,9:1. Por isso as vias são BURACOS — furo escuro com halo escuro, que é o
+ * que uma via furada e não preenchida é de verdade. Pastilha clara ficaria mais
+ * bonita e derrubaria a palavra do hero abaixo do piso.
+ *
+ * O único branco que sobrou são os 3% da aresta da trilha, e ele vem SEMPRE
+ * colado numa faixa escura de 5% — são 2px cada. O traço da Press Start 2P a
+ * 56px tem ~7px, então nenhum glifo consegue pousar só na metade clara: o fundo
+ * efetivo de qualquer letra é o par, que mede 3,13:1. Acima do piso, e acima do
+ * que a página tinha antes da textura existir. */
+.hero::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(to bottom, rgb(0 0 0 / 6%) 0 3px, transparent 3px 6px);
   pointer-events: none;
+  background-image:
+    /* Vias: furo (11%) e halo (4%), os dois escuros. Tile de 192px — elas caem
+       numa trilha vertical a cada três e numa horizontal a cada duas, que é a
+       densidade de uma placa real. Via em todo cruzamento seria pontilhado. */
+    radial-gradient(
+      circle at 3px 3px,
+      rgb(0 0 0 / 11%) 0 2px,
+      rgb(0 0 0 / 4%) 2px 3px,
+      transparent 3px
+    ),
+    /* Trilhas verticais (64px) e horizontais (96px). Os períodos são
+       DIFERENTES de propósito: com o mesmo número nos dois eixos a textura
+       resolve como papel milimetrado, e aí não é mais uma placa — é uma grade.
+       Em 64×96 os cruzamentos só se repetem a cada 192px e o olho lê circuito. */
+    repeating-linear-gradient(
+      to right,
+      rgb(255 255 255 / 3%) 0 2px,
+      rgb(0 0 0 / 5%) 2px 4px,
+      transparent 4px 64px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      rgb(255 255 255 / 3%) 0 2px,
+      rgb(0 0 0 / 5%) 2px 4px,
+      transparent 4px 96px
+    ),
+    /* Barramento secundário, apagado e fora de fase (160px): é ele que quebra a
+       regularidade que sobrou e dá à placa a densidade irregular. */
+    repeating-linear-gradient(to right, rgb(0 0 0 / 4%) 0 2px, transparent 2px 160px),
+    /* A diagonal de 45°. Numa placa real a rota mais curta entre dois pontos
+       quase nunca é em L — sem ela a textura fica ortogonal demais. */
+    repeating-linear-gradient(45deg, rgb(0 0 0 / 3.5%) 0 2px, transparent 2px 96px);
+  background-size:
+    192px 192px,
+    64px 64px,
+    96px 96px,
+    160px 160px,
+    auto;
 }
 
 .hero__inner {

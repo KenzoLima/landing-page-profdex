@@ -289,9 +289,13 @@ watch(status, (value) => {
   /* `contain`: o recorte do rosto é transparente em volta, e `cover` cortaria o
      cabelo para preencher o quadrado. */
   object-fit: contain;
-  padding: var(--space-3);
-  border: 3px solid var(--surface-border);
+  padding: var(--space-4);
+  /* Moldura Pokédex cheia: prata biselada, faixa dourada, fio escuro. Esta e o
+   * visor do hero são as duas peças grandes da página — só elas levam o
+   * dourado em faixa. */
+  border: 3px solid var(--bg-deep);
   border-radius: var(--radius);
+  box-shadow: var(--dex-bevel);
   /* Placa na cor do tipo do professor selecionado, como nos cards da Pokédex —
      é o que amarra as duas seções na mesma leitura. */
   background: color-mix(in srgb, var(--tipo-atual) 22%, var(--bg-deep));

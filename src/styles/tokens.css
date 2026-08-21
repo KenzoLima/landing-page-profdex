@@ -35,7 +35,9 @@
 
   /* ── Tipografia ───────────────────────────────────────────────────────── */
   --font-pixel: 'Press Start 2P', 'Courier New', monospace;
-  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* A pilha do sistema fica de fallback: se o .woff2 não chegar, o texto
+   * continua sóbrio e legível em vez de cair num serifado qualquer. */
+  --font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
   /* Escala fluida. O app fixa 22/11/9px porque vive numa tela de 480px; aqui a
    * página vai de 320px a 1920px, então a regra é manter a PROPORÇÃO

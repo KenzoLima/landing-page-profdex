@@ -109,10 +109,14 @@ const unknownLabel = professorsCopy.unknownLabel
   /* `contain`, nunca `cover`: o boneco é corpo inteiro sobre transparência, e
    * `cover` cortaria os pés para preencher o quadrado. */
   object-fit: contain;
-  /* Um respiro em volta para o boneco não encostar na borda do card. */
-  padding: var(--space-2);
-  border: 2px solid var(--surface-border);
+  /* Um respiro em volta para o boneco não encostar na borda do card — agora
+   * um passo maior, porque os anéis do bisel comem 3px por lado. */
+  padding: var(--space-3);
+  /* Moldura Pokédex fina: prata biselada + fio dourado. Ver retro-tech.css
+   * para por que o dourado aqui é fio de 1px e não faixa. */
+  border: 2px solid var(--bg-deep);
   border-radius: var(--radius);
+  box-shadow: var(--dex-bevel-sm);
   /* O palco atrás do boneco é a cor do TIPO. Ele aparece de verdade (o sprite é
    * transparente), então é a primeira coisa que diz de que tipo é o professor —
    * antes de o olho chegar na badge. É o mesmo tratamento do card travado, e é o
@@ -125,8 +129,12 @@ const unknownLabel = professorsCopy.unknownLabel
   place-items: center;
   gap: var(--space-2);
   aspect-ratio: 1;
+  /* A travada mantém o tracejado e ganha só a prata escura — sem dourado. Na
+   * Pokédex o metal só acende quando a entrada existe; uma silhueta emoldurada
+   * em ouro contaria a história errada. */
   border: 2px dashed var(--surface-border);
   border-radius: var(--radius);
+  box-shadow: var(--dex-bevel-locked);
   /* 12% da cor do tipo: o suficiente para diferenciar as silhuetas entre si,
    * longe do necessário para revelar quem é. */
   background: color-mix(in srgb, var(--locked-tint) 12%, var(--bg-deep));
