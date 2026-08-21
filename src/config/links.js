@@ -23,4 +23,5 @@ export const EMAIL_DOMAINS = {
 }
 
 export const REPO_URL = 'https://github.com/KenzoLima/landing-page-profdex'
+export const COMP_URL = 'https://www.instagram.com/computacaounifil/'
 export const UNIFIL_URL = 'https://www.unifil.br'

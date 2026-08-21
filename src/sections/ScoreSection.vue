@@ -29,7 +29,12 @@ const widthOf = (points) => ((points / maxPoints.value) * 100).toFixed(1) + '%'
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in score.rows" :key="row.action" :class="{ 'is-high': row.highlight }">
+          <tr
+            v-for="(row, i) in score.rows"
+            :key="row.action"
+            :class="{ 'is-high': row.highlight }"
+            :style="{ '--reveal-i': i }"
+          >
             <th scope="row" class="table__action">
               {{ row.action }}
               <!-- A barra fica atrás do texto da linha, não numa coluna própria:
@@ -78,8 +83,10 @@ const widthOf = (points) => ((points / maxPoints.value) * 100).toFixed(1) + '%'
 
 .table__action {
   position: relative;
+  font-family: var(--font-pixel);
   font-weight: 400;
   font-size: var(--fs-body-sm);
+  line-height: 1.7;
   color: var(--text-primary);
   isolation: isolate;
 }
@@ -96,6 +103,9 @@ const widthOf = (points) => ((points / maxPoints.value) * 100).toFixed(1) + '%'
   transform: scaleX(0);
   transform-origin: left;
   transition: transform 900ms var(--ease-pixel);
+  /* As barras crescem de cima para baixo, uma linha atrás da outra: a tabela é
+     uma escada de valor, e vê-la se montar na ordem é o argumento da seção. */
+  transition-delay: calc(var(--reveal-i, 0) * 70ms);
 }
 
 [data-reveal='shown'] .table__bar {
@@ -125,7 +135,9 @@ const widthOf = (points) => ((points / maxPoints.value) * 100).toFixed(1) + '%'
 
 .note {
   margin-top: var(--space-3);
+  font-family: var(--font-pixel);
   font-size: var(--fs-body-sm);
+  line-height: 1.7;
   color: var(--text-muted);
   border-left: 3px solid var(--unifil-orange);
   padding-left: var(--space-3);
@@ -135,6 +147,7 @@ const widthOf = (points) => ((points / maxPoints.value) * 100).toFixed(1) + '%'
 @media (prefers-reduced-motion: reduce) {
   .table__bar {
     transition: none;
+    transition-delay: 0s;
     transform: scaleX(1);
   }
 }

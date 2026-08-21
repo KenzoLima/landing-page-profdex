@@ -5,7 +5,7 @@ import PixelButton from '@/components/PixelButton.vue'
 </script>
 
 <template>
-  <header class="hero">
+  <header id="topo" class="hero">
     <div class="hero__inner container">
       <div class="hero__art">
         <!-- Esta imagem é o LCP da página, então NÃO é lazy e NÃO é async:
@@ -50,7 +50,11 @@ import PixelButton from '@/components/PixelButton.vue'
      do aparelho. Dois pixels — o suficiente para o corte parecer fabricado em
      vez de cortado com `border-bottom`. */
   box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--unifil-gold) 45%, transparent);
-  padding-block: var(--space-5) var(--space-6);
+  /* O topo reserva a altura da barra fixa: ela flutua por cima do hero, e
+     sem esta soma o "Semana Tecnológica · UniFil" nasceria escondido
+     atrás dela. Reservado em CSS, então vale já no primeiro paint — o CLS
+     continua 0. */
+  padding-block: calc(var(--nav-h) + var(--space-5)) var(--space-6);
   position: relative;
   overflow: hidden;
 }
@@ -119,6 +123,21 @@ import PixelButton from '@/components/PixelButton.vue'
     96px 96px,
     160px 160px,
     auto;
+  /* Microvida: a placa desliza um tile inteiro (192px) em 8 quadros, uma vez a
+     cada 24 segundos. É `steps(8)`, então são OITO repinturas por ciclo — não
+     240 por segundo — e a diferença entre um quadro e o outro é pequena demais
+     para desviar o olho do título. Não custa contraste: a textura é a mesma,
+     só deslocada, e o par escuro que fica sob cada glifo continua o mesmo. */
+  animation: board-drift 24s steps(8, end) infinite;
+}
+
+@keyframes board-drift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 192px 192px;
+  }
 }
 
 .hero__inner {
@@ -172,6 +191,20 @@ import PixelButton from '@/components/PixelButton.vue'
    trata ≥24px como texto grande) e onde ele é a assinatura da marca. */
 .hero__title-accent {
   color: var(--unifil-gold);
+  /* Entrada de "ligar o aparelho": o DEX encaixa no PROF em três quadros.
+     TRANSFORM APENAS — nada de fade. O LCP da página é o texto do hero, e
+     animar opacidade aqui empurraria a marca de LCP para o fim da animação. */
+  display: inline-block;
+  animation: dex-snap 360ms steps(3, end) 1 both;
+}
+
+@keyframes dex-snap {
+  from {
+    transform: translateX(6px);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
 .hero__subtitle {
@@ -199,7 +232,9 @@ import PixelButton from '@/components/PixelButton.vue'
 }
 
 .hero__cta-hint {
+  font-family: var(--font-pixel);
   font-size: var(--fs-body-sm);
+  line-height: 1.7;
   color: var(--text-primary);
   opacity: 0.85;
 }
@@ -217,17 +252,30 @@ import PixelButton from '@/components/PixelButton.vue'
 
 @media (min-width: 860px) {
   .hero {
-    padding-block: var(--space-6) var(--space-7);
+    padding-block: calc(var(--nav-h) + var(--space-6)) var(--space-7);
   }
 
   .hero__inner {
     flex-direction: row;
+    /* Preenche a largura do container em vez de empacotar as duas peças à
+       esquerda: sem isto, alargar `--maxw-content` só cria uma faixa vazia
+       nova à direita do texto — o mesmo desperdício de fora do container,
+       só que dentro dele. */
+    justify-content: space-between;
     text-align: left;
     gap: var(--space-6);
   }
 
   .hero__ball {
     width: clamp(176px, 20vw, 240px);
+  }
+
+  .hero__text {
+    /* Teto para a coluna de texto: sem ele, o item flex sem `flex-grow`
+       ainda mede sua caixa pelo conteúdo mais largo (o `<h1>` em pixel),
+       que é bem mais largo que qualquer linha de parágrafo — sobra vão
+       morto entre o fim do texto e a borda direita do hero. */
+    max-width: 640px;
   }
 
   .hero__lede {
@@ -239,8 +287,21 @@ import PixelButton from '@/components/PixelButton.vue'
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+/* Acima de 1400px o `--maxw-content` fluido (ver tokens.css) já entregou
+ * espaço extra ao hero; sem crescer a bola junto, esse espaço vira só um
+ * `gap` maior entre as duas metades. A bola cresce com a tela para continuar
+ * lendo como a peça de mesmo peso visual que o título, e não um selo
+ * encolhendo num canto. */
+@media (min-width: 1400px) {
   .hero__ball {
+    width: clamp(240px, 16vw, 320px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__ball,
+  .hero::before,
+  .hero__title-accent {
     animation: none;
   }
 }

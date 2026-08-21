@@ -42,7 +42,8 @@ const headingId = useId()
 }
 
 .section-lede {
-  margin-top: var(--space-2);
+  /* Sem margem própria: o `gap` do .section-head já é o respiro entre título e
+     lede, e somar os dois deixava esta linha fora da escala de 8. */
   color: var(--text-muted);
   font-size: var(--fs-body);
 }

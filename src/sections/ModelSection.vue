@@ -309,12 +309,16 @@ watch(status, (value) => {
 }
 
 .model__hint {
+  font-family: var(--font-pixel);
   font-size: var(--fs-body-sm);
+  line-height: 1.7;
   color: var(--text-muted);
 }
 
 .model__refusal {
+  font-family: var(--font-pixel);
   font-size: var(--fs-body-sm);
+  line-height: 1.7;
   color: var(--unifil-gold);
   border-left: 3px solid var(--unifil-orange);
   padding-left: var(--space-3);

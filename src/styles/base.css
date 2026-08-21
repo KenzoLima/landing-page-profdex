@@ -15,8 +15,11 @@
 
 html {
   scroll-behavior: smooth;
-  /* Compensa o header fixo quando o usuário pula por âncora. */
-  scroll-padding-top: var(--space-6);
+  /* Compensa o header fixo quando o usuário pula por âncora: a altura real
+   * da barra mais um respiro, senão o título do alvo encosta na borda de
+   * baixo dela. Vale para TODA âncora — #conteudo do skip-link, #creditos
+   * da navbar e do rodapé, #topo do logo. */
+  scroll-padding-top: calc(var(--nav-h) + var(--space-3));
   -webkit-text-size-adjust: 100%;
 }
 
@@ -108,6 +111,18 @@ button {
   border: 0;
 }
 
+/* Tabelas ignoram `width: 1px` sob `table-layout: auto` — o navegador usa a
+ * largura mínima do CONTEÚDO em vez da declarada, e uma tabela de
+ * equivalência textual (roda de tipos, tabela de pontos) tem texto sobrando.
+ * O resultado sem isto: a tabela renderiza ~500px, estoura a viewport do
+ * celular por baixo do clip-path (que só esconde visualmente, não limita o
+ * box) e o navegador alarga a página inteira para caber — a faixa vazia do
+ * lado direito em telas estreitas. `table-layout: fixed` faz a tabela
+ * respeitar o 1px como qualquer outro elemento. */
+table.sr-only {
+  table-layout: fixed;
+}
+
 /* ── Layout ─────────────────────────────────────────────────────────────── */
 
 .container {
@@ -167,5 +182,61 @@ button {
 
   [data-reveal='shown'] {
     transition: none;
+  }
+}
+
+/* ── Variações do reveal ────────────────────────────────────────────────── */
+
+/* O reveal de cima é um fade+translate único e global. Ele está certo para
+ * texto corrido — movimento que precisa DESAPARECER, e por isso usa --ease-out.
+ * Mas metade da página é UI de jogo (títulos pixel, badges, números de passo,
+ * cards de Pokédex), e ali o movimento é o efeito: entra em `steps()`, como
+ * tudo o mais que se mexe nesta página.
+ *
+ * Duas variações, aplicadas por classe no MESMO elemento que já carrega o
+ * data-reveal — nenhum observador novo, nenhum kB novo. */
+
+[data-reveal='shown'].reveal-steps {
+  transition:
+    opacity var(--dur-base) var(--ease-pixel),
+    transform var(--dur-base) var(--ease-pixel);
+}
+
+/* Entrada em cascata: quem revela é o CONTÊINER, mas quem se move são os
+ * filhos, um atrás do outro. Por isso o contêiner não pode estar invisível —
+ * senão a grade inteira apareceria de uma vez e a cascata não existiria.
+ *
+ * O índice vem do template (`--reveal-i`), porque só ele sabe a ordem de
+ * leitura. 70ms é o passo: abaixo disso não se percebe, acima disso a última
+ * peça de uma grade de nove chega meio segundo depois da primeira. */
+[data-reveal='pending'].reveal-stagger {
+  opacity: 1;
+  transform: none;
+}
+
+[data-reveal='pending'].reveal-stagger > * {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+[data-reveal='shown'].reveal-stagger > * {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--dur-base) var(--ease-pixel),
+    transform var(--dur-base) var(--ease-pixel);
+  transition-delay: calc(var(--reveal-i, 0) * 70ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal='pending'].reveal-stagger > * {
+    opacity: 1;
+    transform: none;
+  }
+
+  [data-reveal='shown'].reveal-steps,
+  [data-reveal='shown'].reveal-stagger > * {
+    transition: none;
+    transition-delay: 0s;
   }
 }

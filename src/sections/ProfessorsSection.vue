@@ -3,6 +3,11 @@ import { professors } from '@/content/copy.js'
 import { CAPTURABLE, LOCKED } from '@/data/professors.js'
 import SectionShell from '@/components/SectionShell.vue'
 import ProfessorCard from '@/components/ProfessorCard.vue'
+import { useReveal } from '@/composables/useReveal.js'
+
+// A grade entra card a card, na ordem da Pokédex: é a leitura de uma coleção
+// sendo preenchida, e é o argumento inteiro da seção.
+const { el } = useReveal({ threshold: 0.1 })
 
 // Esta seção mostra a GRADE da Pokédex, e só isso.
 //
@@ -17,7 +22,7 @@ import ProfessorCard from '@/components/ProfessorCard.vue'
   <SectionShell :kicker="professors.kicker" :title="professors.title">
     <template #lede>{{ professors.desc }}</template>
 
-    <ul class="grid">
+    <ul ref="el" class="grid reveal-stagger">
       <ProfessorCard
         v-for="(prof, i) in CAPTURABLE"
         :key="prof.slug"

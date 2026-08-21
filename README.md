@@ -302,6 +302,50 @@ Com `prefers-reduced-motion: reduce`, o GSAP não é baixado e o 3D continua
 disponível, sem rotação automática: preferência de movimento não deve negar
 conteúdo.
 
+### A roda que gira na mão
+
+`TypeWheelSection.vue` tem um quarto tipo de movimento, que não é nenhuma das
+três camadas: **física própria num `requestAnimationFrame`**, ~40 linhas, zero
+bytes de biblioteca. Segurar a roda carrega impulso, soltar deixa a inércia
+correr com atrito exponencial, e ao parar ela trava no múltiplo de 40° mais
+próximo. O tipo que ficou sob o ponteiro do topo é a seleção.
+
+Quatro decisões que não são óbvias:
+
+1. **O estado é um ângulo.** `rotation` é a fonte de verdade; `selectedId` é
+   `indexAtTop(rotation)` gravado no momento do assentamento. Ele é publicado no
+   INÍCIO da parada, não no fim — assim o painel acompanha a roda chegando, sem
+   repintar a cada 40° durante o giro livre.
+2. **Os ícones contra-giram.** O grupo dos setores gira por CSS; cada ícone
+   recebe `rotate(-θ 14 14)` no atributo SVG. Sem isso os nove símbolos ficam de
+   cabeça para baixo na primeira meia volta. É também por isso que o
+   assentamento é interpolado em JS e não por `transition` de CSS: os dois
+   precisam sair do MESMO número, ou o símbolo fica para trás do setor.
+3. **O scroll-spin não disputa o transform.** O GSAP gira o `<svg>` inteiro
+   (ponteiro junto); a mão gira só o grupo interno. No primeiro `pointerdown` o
+   ângulo do scroll é dobrado no da mão e o ScrollTrigger morre — daí em diante
+   a roda é do usuário.
+4. **`touch-action: pan-y`.** A roda ocupa meia tela no celular; capturar o
+   gesto vertical prenderia o aluno na seção. O que sobra para o gesto é o toque
+   parado, que é exatamente o clique longo. Se o navegador decidir rolar no meio
+   do giro, chega um `pointercancel` e a roda é solta com a inércia que tinha.
+
+O clique curto continua selecionando o setor tocado (agora ele também viaja até
+o topo). Com movimento reduzido não há giro nem inércia: o clique curto é um
+corte seco e o clique longo avança um tipo. Pelo teclado, os nove chips
+continuam alcançando tudo, e ←/→ andam de um tipo por vez — a `<svg>` segue
+`aria-hidden`, e nunca foi a única porta.
+
+### As variações do reveal
+
+O reveal global (`useReveal.js` + `data-reveal`) ganhou duas variações em
+`base.css`, aplicadas por classe no mesmo elemento observado, sem observador
+novo: `.reveal-steps` troca o easing por `steps()` (para caixas de UI de jogo) e
+`.reveal-stagger` mantém o contêiner visível e faz os FILHOS entrarem em
+cascata, com o índice vindo do template (`--reveal-i`, 70ms por posição). Usam
+isso a lista de passos, o fluxo do PvP, a grade da Pokédex, as barras da tabela
+de pontos e as da escada de Elo.
+
 ## Acessibilidade
 
 Contraste conferido e anotado em `tokens.css`. A armadilha: `--unifil-gold` sobre

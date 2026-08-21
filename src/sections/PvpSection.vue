@@ -2,6 +2,12 @@
 import { pvp } from '@/content/copy.js'
 import SectionShell from '@/components/SectionShell.vue'
 import TierBadge from '@/components/TierBadge.vue'
+import { useReveal } from '@/composables/useReveal.js'
+
+// Os cinco passos entram em cascata (a ordem deles É a leitura) e a escada de
+// tiers entra depois, com as barras crescendo.
+const { el: flowEl } = useReveal()
+const { el: ladderEl } = useReveal({ threshold: 0.25 })
 
 const pad = (n) => String(n).padStart(2, '0')
 </script>
@@ -10,11 +16,12 @@ const pad = (n) => String(n).padStart(2, '0')
   <SectionShell :kicker="pvp.kicker" :title="pvp.title">
     <template #lede>{{ pvp.desc }}</template>
 
-    <ol class="flow">
+    <ol ref="flowEl" class="flow reveal-stagger">
       <li
         v-for="(step, i) in pvp.steps"
         :key="step.title"
         class="flow__step gba-frame gba-frame--plain"
+        :style="{ '--reveal-i': i }"
       >
         <span class="step-num" aria-hidden="true">{{ pad(i + 1) }}</span>
         <h3 class="flow__title">{{ step.title }}</h3>
@@ -22,10 +29,16 @@ const pad = (n) => String(n).padStart(2, '0')
       </li>
     </ol>
 
-    <div class="ladder gba-frame">
+    <div ref="ladderEl" class="ladder gba-frame">
       <h3 class="ladder__title">Tiers do ranqueado</h3>
       <ul class="ladder__tiers">
-        <TierBadge v-for="tier in pvp.tiers" :key="tier.name" :tier="tier" />
+        <TierBadge
+          v-for="(tier, i) in pvp.tiers"
+          :key="tier.name"
+          :tier="tier"
+          :rank="i"
+          :of="pvp.tiers.length"
+        />
       </ul>
       <p class="ladder__note">{{ pvp.ratingNote }}</p>
       <p class="ladder__note">{{ pvp.antiTrade }}</p>
@@ -56,7 +69,9 @@ const pad = (n) => String(n).padStart(2, '0')
 }
 
 .flow__desc {
+  font-family: var(--font-pixel);
   font-size: var(--fs-body-sm);
+  line-height: 1.7;
   color: var(--text-muted);
 }
 
@@ -82,7 +97,9 @@ const pad = (n) => String(n).padStart(2, '0')
 }
 
 .ladder__note {
+  font-family: var(--font-pixel);
   font-size: var(--fs-body-sm);
+  line-height: 1.7;
   color: var(--text-muted);
   border-left: 3px solid var(--unifil-orange);
   padding-left: var(--space-3);

@@ -1,6 +1,6 @@
 <script setup>
 import { footer } from '@/content/copy.js'
-import { REPO_URL, UNIFIL_URL } from '@/config/links.js'
+import { COMP_URL, UNIFIL_URL } from '@/config/links.js'
 </script>
 
 <template>
@@ -22,7 +22,11 @@ import { REPO_URL, UNIFIL_URL } from '@/config/links.js'
       </div>
 
       <nav class="footer__links" aria-label="Links do rodapé">
-        <a :href="REPO_URL" target="_blank" rel="noopener noreferrer">{{ footer.repoLabel }}</a>
+        <!-- Âncora interna, e por isso sem target="_blank": Créditos é a
+             última seção DESTA página. Abrir a própria página numa aba nova
+             seria mentira sobre para onde o link leva. -->
+        <a href="#creditos">{{ footer.creditsLabel }}</a>
+        <a :href="COMP_URL" target="_blank" rel="noopener noreferrer">{{ footer.compLabel }}</a>
         <a :href="UNIFIL_URL" target="_blank" rel="noopener noreferrer">{{ footer.siteLabel }}</a>
       </nav>
     </div>
@@ -71,7 +75,9 @@ import { REPO_URL, UNIFIL_URL } from '@/config/links.js'
 }
 
 .footer__links a {
+  font-family: var(--font-pixel);
   font-size: var(--fs-body-sm);
+  line-height: 1.7;
 }
 
 .footer__colophon {

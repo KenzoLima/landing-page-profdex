@@ -37,6 +37,20 @@ export const hero = {
   ctaHint: 'Entra com a conta institucional. Abre no navegador do celular.',
 }
 
+/* Barra fixa do topo. Enxuta de propósito: dois destinos só — os créditos e o
+ * app. Um menu com as sete seções da página caberia no desktop e viraria
+ * hambúrguer no celular, que é o aparelho do público; e a página inteira já se
+ * lê rolando. */
+export const nav = {
+  brandStart: 'PROF',
+  brandEnd: 'DEX',
+  // Nome acessível do logo. Contém o texto visível ("PROFDEX"), como exige a
+  // WCAG 2.5.3 — quem usa comando de voz fala o que vê.
+  brandLabel: 'ProfDex — voltar ao topo',
+  credits: 'Créditos',
+  cta: 'COMEÇAR',
+}
+
 export const howItWorks = {
   kicker: 'Como funciona',
   title: 'Do estande à coleção',
@@ -86,7 +100,7 @@ export const typeWheel = {
   note: 'Os nove temas do quiz são estes mesmos nove tipos. Como o QR é sorteado, dá para terminar o evento com uma equipe de tipos bem variados.',
   legendStrong: 'Forte contra',
   legendWeak: 'Fraco contra',
-  hint: 'Toque em um tipo para ver as vantagens dele.',
+  hint: 'Toque em um tipo para ver as vantagens dele — ou segure a roda para girar e soltar: ela trava no tipo que parar no topo.',
 }
 
 export const battle = {
@@ -219,10 +233,100 @@ export const finalCta = {
   platformNote: 'Roda no navegador do celular. Não tem app para baixar.',
 }
 
+export const credits = {
+  kicker: 'Créditos',
+  title: 'Quem fez o ProfDex',
+  lede: 'Projeto desenvolvido dentro do grupo de pesquisa de Realidade Aumentada da UniFil, feito para a TechFil.',
+
+  teamTitle: 'Time: RATOS CEGOS',
+  team: [
+    {
+      name: 'Enzo Horçai da Silva',
+      role: 'UI/UX',
+      links: [
+        { url: 'https://www.linkedin.com/in/enzohorcai/', label: 'Linkedin,' },
+        { url: 'https://github.com/EnzoHorcai', label: 'Github' },
+      ],
+    },
+    {
+      name: 'Gregório C. Campos Lotz',
+      role: 'Back-end e UI/UX',
+      links: [
+        { url: 'https://www.linkedin.com/in/greg%C3%B3rio-celso-campos-lotz/', label: 'Linkedin,' },
+        { url: 'https://github.com/gregoriounifil', label: 'Github' },
+      ],
+    },
+    {
+      name: 'Kenzo Lima Yamamoto',
+      role: 'Back-end e UI/UX',
+      links: [
+        { url: 'https://www.linkedin.com/in/kenzo-lima-yamamoto-ab5512359/', label: 'Linkedin,' },
+        { url: 'https://github.com/KenzoLima', label: 'Github' },
+      ],
+    },
+    {
+      name: 'Maísa P. Dalla Costa',
+      role: 'Artes e Pixelart',
+      links: [
+        { url: 'https://www.linkedin.com/in/maisapascoalotodallacosta/', label: 'Linkedin,' },
+        { url: 'https://github.com/maisadallacosta', label: 'Github' },
+      ],
+    },
+    {
+      name: 'Nicole Duarte Guirardelli',
+      role: 'Back-end',
+      links: [
+        { url: 'https://www.linkedin.com/in/nicole-guirardelli/', label: 'Linkedin,' },
+        { url: 'https://github.com/NicoleGuirardelli', label: 'Github' },
+      ],
+    },
+  ],
+
+  advisorsTitle: 'Professores orientadores',
+  advisors: [
+    {
+      name: 'Eron Ponce',
+      role: 'Orientador',
+      links: [
+        { url: 'https://www.linkedin.com/in/eron-ponce-95285b213/', label: 'Linkedin,' },
+        { url: 'https://github.com/Eronponce', label: 'Github' },
+      ],
+    },
+    {
+      name: 'Gustavo Queiroz',
+      role: 'Orientador',
+      links: [
+        { url: 'https://www.linkedin.com/in/gustavo-queiroz-silveira/', label: 'Linkedin,' },
+        { url: 'https://github.com/gustavo-qss', label: 'Github' },
+      ],
+    },
+    {
+      name: 'Mario Henrique Adaniya',
+      role: 'Orientador',
+      links: [
+        { url: 'https://www.linkedin.com/in/mhadaniya/', label: 'Linkedin,' },
+        { url: 'https://github.com/mhadaniya', label: 'Github' },
+      ],
+    },
+  ],
+
+  institutionTitle: 'Instituição',
+  institutionName: 'UniFil',
+  institutionDesc: 'O ProfDex existe para a Semana Tecnológica da UniFil.',
+  institutionLink: 'unifil.br',
+
+  projectTitle: 'Projeto',
+  projectDesc: 'O código desta página é aberto: dá para abrir, ler e clonar.',
+  projectLink: 'Código no GitHub',
+  // Fonte: public/fonts/README.md. As duas são SIL Open Font License 1.1, que
+  // é o que permite versionar os .woff2 aqui dentro.
+  fontsNote: 'Tipografia: Press Start 2P e IBM Plex Sans, ambas sob SIL Open Font License 1.1.',
+}
+
 export const footer = {
   project: 'ProfDex',
-  event: 'Semana Tecnológica · UniFil',
-  repoLabel: 'Código no GitHub',
+  event: 'TechFil · UniFil',
+  compLabel: 'Instagram computação',
   siteLabel: 'unifil.br',
   colophon: 'Feito por alunos, para alunos — com uma quantidade defensável de nostalgia.',
 }

@@ -102,7 +102,9 @@ const { el } = useReveal()
 }
 
 .cta__platform {
+  font-family: var(--font-pixel);
   font-size: var(--fs-body-sm);
+  line-height: 1.7;
   color: var(--text-muted);
 }
 </style>

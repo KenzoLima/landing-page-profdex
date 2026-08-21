@@ -8,11 +8,19 @@ import PvpSection from '@/sections/PvpSection.vue'
 import ScoreSection from '@/sections/ScoreSection.vue'
 import ProfessorsSection from '@/sections/ProfessorsSection.vue'
 import CtaSection from '@/sections/CtaSection.vue'
+import CreditsSection from '@/sections/CreditsSection.vue'
+import SiteNav from '@/sections/SiteNav.vue'
 import SiteFooter from '@/sections/SiteFooter.vue'
 </script>
 
 <template>
   <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+  <!-- A barra fica FORA do <main>: é navegação da página inteira, não
+       conteúdo dela. Vem antes do hero na ordem de leitura e de tabulação,
+       logo depois do skip-link — que é exatamente onde quem usa teclado
+       espera encontrar a navegação. -->
+  <SiteNav />
 
   <HeroSection />
 
@@ -30,6 +38,9 @@ import SiteFooter from '@/sections/SiteFooter.vue'
     <ScoreSection />
     <ProfessorsSection />
     <CtaSection />
+    <!-- Créditos por último, depois do CTA: são fatos sobre quem fez, e quem
+         chega aqui já passou por todos os motivos para clicar. -->
+    <CreditsSection />
   </main>
 
   <SiteFooter />

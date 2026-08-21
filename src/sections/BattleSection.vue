@@ -336,7 +336,9 @@ const { el } = useReveal({ threshold: 0.4 })
 }
 
 .stats__item dd {
+  font-family: var(--font-pixel);
   font-size: var(--fs-body-sm);
+  line-height: 1.7;
   color: var(--text-muted);
 }
 
@@ -386,14 +388,18 @@ const { el } = useReveal({ threshold: 0.4 })
 }
 
 .moves__note {
+  font-family: var(--font-pixel);
   font-size: var(--fs-body-sm);
+  line-height: 1.7;
   color: var(--text-muted);
   font-style: italic;
 }
 
 .training {
   margin-top: var(--space-3);
+  font-family: var(--font-pixel);
   font-size: var(--fs-body-sm);
+  line-height: 1.7;
   color: var(--text-muted);
   border-left: 3px solid var(--unifil-orange);
   padding-left: var(--space-3);
