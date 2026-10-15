@@ -77,6 +77,32 @@ const cheia = ref(false)
 const botaoAbrir = ref(null)
 const botaoFechar = ref(null)
 
+/**
+ * O app foi desenhado para a largura de um celular (~430px). Num celular, a
+ * tela cheia já é do tamanho certo. Numa tela maior (tablet, celular grande
+ * deitado em pé num suporte, janela larga), esticar só a largura deixava uma
+ * coluna estreita com metade da tela vazia; aqui o app inteiro é AMPLIADO na
+ * proporção que preenche a tela, com `zoom`, sem mudar o desenho.
+ */
+const LARGURA_BASE = 430
+const ALTURA_BASE = 900
+const tela = ref({ w: 0, h: 0 })
+const escala = computed(() =>
+  Math.max(1, Math.min(tela.value.w / LARGURA_BASE, tela.value.h / ALTURA_BASE, 2)),
+)
+const estiloTela = computed(() => {
+  if (!cheia.value || escala.value <= 1) return undefined
+  return {
+    zoom: escala.value,
+    width: `${tela.value.w / escala.value}px`,
+    height: `${tela.value.h / escala.value}px`,
+  }
+})
+
+function medirTela() {
+  tela.value = { w: window.innerWidth, h: window.innerHeight }
+}
+
 async function abrirTelaCheia() {
   // A Fullscreen API é pedida PRIMEIRO, ainda dentro do gesto do toque: depois
   // de um `await` alguns navegadores já não contam como gesto e recusam. Pede-se
@@ -87,6 +113,7 @@ async function abrirTelaCheia() {
     ?.catch(() => {
       // Recusado (iframe, permissão, iPhone): a tela cheia em CSS já vale.
     })
+  medirTela()
   cheia.value = true
   document.documentElement.classList.add('sem-rolagem')
   await nextTick()
@@ -99,7 +126,22 @@ async function fecharTelaCheia() {
   document.documentElement.classList.remove('sem-rolagem')
   if (document.fullscreenElement) await document.exitFullscreen?.().catch(() => {})
   await nextTick()
-  botaoAbrir.value?.focus()
+  botaoAbrir.value?.focus({ preventScroll: true })
+}
+
+/**
+ * "VER EM 3D" da ficha: a seção 3D fica FORA do celular, na página. Em tela
+ * cheia é preciso sair dela primeiro (e esperar o navegador devolver a página
+ * ao tamanho normal), senão a rolagem acontece por trás do app e o visitante
+ * não vê nada mudar.
+ */
+async function verEm3d(slug) {
+  if (cheia.value) {
+    await fecharTelaCheia()
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+    await new Promise((r) => setTimeout(r, 120))
+  }
+  window.dispatchEvent(new CustomEvent('profdex:ver-3d', { detail: slug }))
 }
 
 /** Saiu da Fullscreen API pelo próprio navegador (Esc, gesto de voltar). */
@@ -111,12 +153,20 @@ function aoTeclar(event) {
   if (event.key === 'Escape' && cheia.value) fecharTelaCheia()
 }
 
+/** A tela muda de tamanho ao entrar na Fullscreen API, ao girar o aparelho e
+ *  quando a barra de endereço do celular some ou volta. */
+function aoRedimensionar() {
+  if (cheia.value) medirTela()
+}
+
 document.addEventListener('fullscreenchange', aoMudarFullscreen)
 document.addEventListener('keydown', aoTeclar)
+window.addEventListener('resize', aoRedimensionar)
 
 onBeforeUnmount(() => {
   document.removeEventListener('fullscreenchange', aoMudarFullscreen)
   document.removeEventListener('keydown', aoTeclar)
+  window.removeEventListener('resize', aoRedimensionar)
   document.documentElement.classList.remove('sem-rolagem')
 })
 </script>
@@ -134,7 +184,7 @@ onBeforeUnmount(() => {
     :aria-modal="cheia ? 'true' : undefined"
     :aria-label="cheia ? appDemo.fullscreen.label : undefined"
   >
-    <div class="phone__screen">
+    <div class="phone__screen" :style="estiloTela">
       <p class="phone__badge">{{ appDemo.badge }}</p>
       <button
         v-if="cheia"
@@ -156,7 +206,7 @@ onBeforeUnmount(() => {
         tabindex="0"
       >
         <KeepAlive>
-          <component :is="current.screen" :key="active" @navigate="goTo" />
+          <component :is="current.screen" :key="active" @navigate="goTo" @ver-3d="verEm3d" />
         </KeepAlive>
       </div>
 
@@ -403,18 +453,26 @@ onBeforeUnmount(() => {
 .phone__close {
   position: absolute;
   top: calc(4px + env(safe-area-inset-top, 0px));
-  right: 8px;
+  left: 6px;
   z-index: 4;
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  /* 32px para caber na faixa da pílula, acima do título das telas; o ::before
+     amplia a área de toque para 44px. */
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: rgb(0 0 0 / 70%);
   border: 1px solid color-mix(in srgb, var(--unifil-gold) 50%, transparent);
   color: var(--text-primary);
-  font-size: 16px;
+  font-size: 14px;
   touch-action: manipulation;
+}
+
+.phone__close::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
 }
 
 .phone__close:focus-visible {

@@ -269,7 +269,7 @@ const corTipo = (tp) => {
   /* Acompanha a altura da tela do app (cqh): o painel de golpes embaixo ocupa
      ~300px; o resto é arena, de ~320px na moldura até 460px em tela cheia. */
   height: 320px;
-  height: clamp(210px, calc(100cqh - 300px), 460px);
+  height: clamp(210px, calc(100cqh - 300px), 620px);
   flex-shrink: 0;
   background:
     linear-gradient(to bottom, rgb(0 0 0 / 62%), rgb(0 0 0 / 22%) 30%, rgb(0 0 0 / 12%) 60%, rgb(0 0 0 / 55%)),

@@ -13,7 +13,7 @@ import TypeIcon from '@/components/TypeIcon.vue'
 // A coleção do app (ProfdexView + ProfCard) e a ficha (ProfessorView), com a
 // Pokédex COMPLETA do treinador fictício: os 16 regulares e os 6 raros. O
 // lendário fica em silhueta, e o card dele leva à aba Raid.
-const emit = defineEmits(['navigate'])
+const emit = defineEmits(['navigate', 'ver-3d'])
 const t = appDemo.dex
 
 const num = (i) => `#${String(i + 1).padStart(3, '0')}`
@@ -52,9 +52,13 @@ const numeroDaFicha = computed(() => {
   return num(CAPTURABLE.findIndex((p) => p.slug === aberto.value?.slug))
 })
 
-/** "VER EM 3D": leva à seção 3D da landing com o professor já escolhido. */
+/**
+ * "VER EM 3D": pede à casca do celular (PhoneShell) para levar à seção 3D da
+ * landing com o professor já escolhido. Quem leva é a casca porque, em tela
+ * cheia, ela precisa sair desse modo antes de a página rolar.
+ */
 function verEm3d() {
-  window.dispatchEvent(new CustomEvent('profdex:ver-3d', { detail: aberto.value.slug }))
+  emit('ver-3d', aberto.value.slug)
 }
 </script>
 

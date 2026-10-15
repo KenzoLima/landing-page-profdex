@@ -120,7 +120,7 @@ onBeforeUnmount(() => timers.forEach(clearTimeout))
 /* O raio acompanha a tela do app (cqh/cqw, ver PhoneShell): ~66px na moldura
    da página, até 96px em tela cheia, sem passar de um quarto da largura. */
 .cena-rot__roda :deep(.roda__disco) {
-  --raio: min(clamp(64px, 11cqh, 96px), 22cqw);
+  --raio: min(clamp(64px, 11cqh, 116px), 24cqw);
 }
 
 .cena-rot__roda {
@@ -191,7 +191,7 @@ onBeforeUnmount(() => timers.forEach(clearTimeout))
   flex: 1;
   min-width: 0;
   height: 180px;
-  height: clamp(160px, 28cqh, 260px);
+  height: clamp(160px, 30cqh, 340px);
 }
 
 .ator__sprite {

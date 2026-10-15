@@ -227,7 +227,7 @@ const corDoPeso = (peso) =>
    grandes, em duas fileiras (ver CenaRoteiro, `ator--grupo`). */
 .palco.palco--grupo {
   height: 320px;
-  height: clamp(250px, calc(100cqh - 300px), 540px);
+  height: clamp(250px, calc(100cqh - 300px), 680px);
 }
 
 /* O palco é o ginásio da UniFil, o mesmo fundo da arena do app, com um véu
@@ -243,7 +243,7 @@ const corDoPeso = (peso) =>
      do cabeçalho, dos pontos e da caixa de fala (~305px). Na moldura da página
      isso dá ~300px; em tela cheia num celular alto, até 470px. */
   height: 300px;
-  height: clamp(230px, calc(100cqh - 305px), 470px);
+  height: clamp(230px, calc(100cqh - 305px), 620px);
   padding: 10px;
   border: 2px solid var(--surface-border);
   border-radius: 12px;
