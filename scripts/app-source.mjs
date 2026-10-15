@@ -1,38 +1,35 @@
 /**
- * Onde está o `profdex-front` (o app), visto daqui.
+ * Onde estão os `.glb` de origem do elenco (professores e formas especiais).
  *
- * A landing é um repositório separado e NÃO versiona os originais: os `.glb` de
- * 27–74 MB e os PNG 4096² não têm por que viajar num repo de página estática.
- * O que este repo guarda é o RESULTADO (`public/`) mais os scripts que sabem
- * refazê-lo — então quem só quer rodar `npm run dev` não precisa do app ao lado,
- * e quem vai reprocessar arte precisa.
+ * A landing NÃO versiona os originais: as esculturas de ~60 MB não têm por que
+ * viajar num repo de página estática. O que este repo guarda é o RESULTADO
+ * (`public/models/`) mais o script que sabe refazê-lo — então quem só quer rodar
+ * `npm run dev` não precisa da pasta de modelos, e quem vai reprocessar precisa.
  *
  * A ordem de busca é: variável de ambiente primeiro (é a resposta de quem sabe),
- * depois os lugares onde o app costuma estar clonado. Falhar com a lista toda na
+ * depois a pasta-irmã que o time usa no disco. Falhar com a lista toda na
  * mensagem economiza uma ida ao README.
  */
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 
-const CANDIDATES = [
-  process.env.PROFDEX_FRONT,
-  path.resolve(import.meta.dirname, '../../profdex-front'),
-  path.resolve(import.meta.dirname, '../../../profdex-front'),
-  'D:\\profdex\\main\\profdex-front',
-  path.join(process.env.USERPROFILE ?? process.env.HOME ?? '', 'Desktop', 'Profdex', 'profdex-front'),
+const MODEL_DIR_CANDIDATES = [
+  process.env.PROFDEX_MODELS_DIR,
+  path.resolve(import.meta.dirname, '../../professores profdex 3D'),
+  'D:\\profdex\\professores profdex 3D',
 ].filter(Boolean)
 
-/** Marca d'água: uma pasta só é o app se tiver a arte que viemos buscar. */
-const MARKER = path.join('public', 'professors', 'gustavo-cartoon.png')
+/** Marca d'água: uma pasta só é a dos modelos se tiver um que todo elenco tem. */
+const MARKER = 'professor-mario.glb'
 
-export function resolveAppRoot() {
-  for (const dir of CANDIDATES) {
+export function resolveModelsDir() {
+  for (const dir of MODEL_DIR_CANDIDATES) {
     if (existsSync(path.join(dir, MARKER))) return dir
   }
 
   throw new Error(
-    'Não encontrei o profdex-front. Aponte com PROFDEX_FRONT=<caminho>.\n' +
+    'Não encontrei a pasta dos modelos 3D. Aponte com PROFDEX_MODELS_DIR=<caminho>.\n' +
       'Procurei em:\n' +
-      CANDIDATES.map((c) => `  · ${c}`).join('\n'),
+      MODEL_DIR_CANDIDATES.map((c) => `  · ${c}`).join('\n'),
   )
 }

@@ -1,33 +1,82 @@
 # Landing page do ProfDex
 
-Página de divulgação do [ProfDex](https://profdex-two.vercel.app) para a Semana
-Tecnológica da UniFil. Estática, sem backend, com um único CTA: levar o aluno ao
-login institucional.
+Página de divulgação do ProfDex, feito para a TechFil (antiga Semana Tecnológica
+da UniFil). Estática, sem backend. Enquanto o jogo está fora do ar, a página não
+linka para o app: os botões levam aos vídeos e aos créditos da própria página.
+
+Publicação: projeto próprio na Vercel (raiz do domínio) ou
+**https://profdex.unifil.tech/landing/**, atrás do nginx de borda do monorepo —
+ver "Deploy" no fim deste arquivo.
 
 O briefing de conteúdo e identidade está em [LANDING-PAGE.md](./LANDING-PAGE.md).
 
 ```bash
 npm install
-npm run dev       # http://localhost:5173
+npm run dev       # http://localhost:5174/landing/
 npm run build     # roda o orçamento de assets antes de compilar
 npm run preview
 ```
 
-| Script | O que faz |
-|---|---|
-| `npm run dev` | Servidor de desenvolvimento |
-| `npm run build` | `prebuild` verifica o orçamento de assets, depois `vite build` |
-| `npm run check:assets` | Só a verificação de orçamento |
-| `npm run assets:optimize` | Regenera retratos e sprites a partir da arte do app |
-| `npm run model:optimize` | Regenera os `.glb` de `public/models/` a partir do app |
-| `node scripts/ase-to-png.mjs <a.ase> <b.png> [n]` | Extrai um quadro de um `.ase` do Aseprite |
-| `npm run lint` / `npm run format` | oxlint / prettier |
+Da raiz do monorepo, `npm run dev:landing` sobe só a landing e
+`npm run dev:all` sobe app + backend + landing juntos. Com os dois no ar, o dev
+server do app repassa `/landing` para cá — ou seja,
+`http://localhost:5173/landing/` funciona igual à produção.
 
-## Como se relaciona com o repositório principal
+## De onde este código veio
 
-O app vive em `D:\profdex\main\profdex-front` (Vue 3 + Vite + Pinia). Esta landing
-é um projeto separado, e isso é deliberado: o app é uma casca mobile de 480px com
-`overflow: hidden` no `body`, que não serve como vitrine nem em desktop.
+Cópia de [KenzoLima/landing-page-profdex](https://github.com/KenzoLima/landing-page-profdex),
+trazida para o monorepo em 22/08/2026 para que a landing seja publicada no mesmo
+domínio do app, pelo mesmo pipeline (um `git push` na `deploy`, uma imagem no
+GHCR, um `docker compose up`).
+
+`node_modules/` e `dist/`, que estavam versionados no repo de origem, ficaram de
+fora — são 228 dos 232 MB daquele clone e nenhum dos dois é fonte.
+
+### O que mudou em relação ao original
+
+Só o necessário para a página viver sob um prefixo de URL e ao lado do app:
+
+| Arquivo | Mudança | Porquê |
+|---|---|---|
+| `vite.config.mjs` | `base: '/landing/'` (via `VITE_BASE`), porta de dev 5174 | O prefixo do nginx; a 5173 é do app |
+| `src/config/asset.js` | **Novo** | O Vite aplica o `base` no HTML e no CSS, nunca em strings dentro do JS |
+| `src/data/professors.js` | Caminhos de `public/` passam por `asset()` | Idem — sem isso, os `.glb` e sprites apontariam para a raiz do domínio, onde mora o app |
+| `src/three/GlbModel.vue`, `SiteNav.vue`, `SiteFooter.vue`, `HeroSection.vue` | Idem | O compilador do Vue não reescreve `src="/..."` absoluto |
+| `src/config/links.js` | Sem link para o app; registra vídeos e fotos | O jogo está fora do ar por algumas semanas |
+| `index.html` | `og:url`/`og:image` absolutos via `__SITE_URL__` | `meta[content]` é o único atributo que o Vite não reescreve com o `base`; o plugin em `vite.config.mjs` resolve o domínio |
+| `Dockerfile`, `nginx.conf` | **Novos** | Build estático + nginx interno, espelhando `profdex-front/` |
+
+### Como trazer mudanças novas do repo de origem
+
+```bash
+git clone --depth 1 https://github.com/KenzoLima/landing-page-profdex /tmp/landing-upstream
+diff -ru --exclude=node_modules --exclude=dist --exclude=.git \
+  /tmp/landing-upstream profdex-landing
+```
+
+Aplique o que interessa à mão e confira a tabela acima antes de sobrescrever um
+dos arquivos listados — são os que divergem de propósito.
+
+## Como é publicada
+
+```
+Internet → Cloudflare → nginx de borda (../nginx/)
+                          └── /landing/ → container `landing` (este diretório)
+```
+
+`Dockerfile` compila com Vite e serve o `dist/` por um nginx interno, a partir de
+`/usr/share/nginx/html/landing/` — o prefixo existe no disco porque o nginx de
+borda repassa a URL inteira (`proxy_pass` sem barra final). Detalhes do deploy em
+[../deploy.md](../deploy.md).
+
+---
+
+## Como se relaciona com o app
+
+O app é o `../profdex-front` (Vue 3 + Vite + Pinia). A landing continua sendo um
+projeto à parte mesmo dentro do monorepo, e isso é deliberado: o app é uma casca
+mobile de 480px com `overflow: hidden` no `body`, que não serve como vitrine nem
+em desktop. São builds separados, dependências separadas, containers separados.
 
 O que foi copiado de lá, e precisa continuar em sincronia:
 
@@ -36,55 +85,39 @@ O que foi copiado de lá, e precisa continuar em sincronia:
 | `src/styles/tokens.css` | `profdex-front/src/style.css` | Só os tokens de marca; os aliases de compatibilidade (`--red`, `--yellow`…) ficaram de fora |
 | `src/styles/gba.css` | `HomeView.vue` | O molde GBA e o botão de pixel, extraídos do `<style scoped>` |
 | `src/data/types.js` | `profdex-front/src/data/types.js` | **Cópia literal** + dois helpers de cor no fim. A roda da landing é derivada de `TYPE_CYCLE`/`strongAgainst()`, nunca digitada |
-| `src/data/professors.js` | `professorTypes.js`, `professorSprites.js`, `professorModels.js` | Ver a correção de contagem abaixo |
-| `public/eagle-ball.png`, `public/professors/*-cartoon.*` | `profdex-front/public/` | Recomprimidos por `assets:optimize` |
-| `public/professors/*-pixel*.png` | `assets-src/sprites/` (aqui) | Normalizados para 64×64, ver abaixo |
-| `public/models/*-hero.glb` | `modelo-{mario,eron,gustavo}.glb` | 127 MB → 2,24 MB, ver abaixo |
-| `src/config/model-sizes.js` | — | **Gerado**, medindo os `.glb` publicados |
+| `src/data/professors.js` | Cadastro do app em produção (nome, slug, tipos) | Tipos não conferidos ficam `[]` e o card mostra "Tipo ???" |
+| `public/professors/*-pixel*.png` | `assets-src/sprites/` (aqui), copiados de `professores profdex/` | 320×320, ver abaixo |
+| `public/models/<slug>.glb` | `professores profdex 3D/` | ~1 GB de origem → 9,5 MB, ver abaixo |
+| `public/videos/`, `public/photos/` | `profdex-midia/` | Comprimidos uma vez (ffmpeg / sharp); ver "Mídia" |
 
 Os cortes de Elo (`src/content/copy.js` → `pvp.tiers`) vieram de
 `profdex-back/src/battle/elo.ts`, que é a fonte de verdade.
 
-Os pesados não são versionados aqui em bruto: os `.glb` de 27–74 MB e os PNG
-4096² ficam no app, e este repo guarda o resultado mais os scripts que sabem
-refazê-lo. Os scripts acham o app sozinhos nos lugares de sempre; se o seu clone
-estiver noutro canto, `PROFDEX_FRONT=<caminho> npm run assets:optimize`.
-
-**Os sprites são a exceção**: eles moram em `assets-src/sprites/` porque não
-existem em nenhum outro lugar recuperável — são poucos kB cada, e só um dos seis
-está no `profdex-front`.
+Os pesados não são versionados aqui em bruto: os `.glb` de até 65 MB ficam na
+pasta `professores profdex 3D`, e este repo guarda o resultado mais o script que
+sabe refazê-lo. Ele acha a pasta sozinho ao lado do repo; se ela estiver noutro
+canto, `PROFDEX_MODELS_DIR=<caminho> npm run model:optimize`.
 
 ### Os sprites
 
-Os seis bonecos (três professores × frente e costas) estão versionados em
-[`assets-src/sprites/`](./assets-src/sprites/) — **leia o README de lá antes de
-mexer neles**, tem duas armadilhas registradas que já custaram retrabalho.
+Os bonecos de frente e de costas de cada professor ficam em
+[`assets-src/sprites/`](./assets-src/sprites/) como `<slug>-{frente,costas}.png`
+(copiados da pasta `professores profdex`; os `.jpg` de lá são PNG com alfa apesar
+da extensão, e Marcelo, Renata e Simone vêm da subpasta de tamanhos corrigidos).
 
-Resumo: o `profdex-front` só tem o `gustavo-pixel.png`. Do Gustavo existe a arte
-de autoria em `.ase` (13 quadros de frente, 14 de costas), copiada para cá junto
-com um leitor próprio (`scripts/ase-to-png.mjs`) — a cadeia arte → PNG →
-`public/` é refazível sem abrir o Aseprite. Do Eron e do Mário existem só
-capturas de tela em 3× passadas por um removedor de fundo.
+A arte do elenco atual é pixel art detalhada (~370×650 px) que já chegou
+reamostrada, sem grade nativa para recuperar. `assets:optimize` recorta cada
+boneco pela caixa do desenho, reduz para 320 px de altura, **binariza o alfa**
+(o removedor de fundo deixa borda macia e, em alguns, uma sombra roxa) e assenta
+o boneco embaixo, no centro, de um canvas 320×320 — todos pisam na mesma linha.
+Como a página exibe o sprite a ~170 px, é uma redução: as `<img>` não usam
+`image-rendering: pixelated`.
 
-A arte de autoria é **64×64**. Dá para medir que as capturas são 3×: o boneco do
-Eron ocupa 106×192 px, exatamente 3× os 35×64 do Gustavo. Então `assets:optimize`
-devolve cada um à grade nativa e **binariza o alfa** (o removedor de fundo deixa
-~9% dos pixels numa borda macia, e pixel art não tem meio-termo). Os do Gustavo,
-já nativos, passam intactos — reamostrar pixel art correta é sempre perda.
+Também recorta um `-pixel-face.png` de cada sprite de frente (46% da altura do
+boneco): é o retrato da seção 3D e do seletor de modelos.
 
-`assets:optimize` também recorta um `-pixel-face.png` de cada sprite de frente: é
-o retrato da seção 3D. O recorte é 46% da ALTURA do boneco (a cabeça é a mesma
-fatia vertical nos três — 38% cortava o cabelo do Mário e do Gustavo, 50% já
-pegava ombro e deixava de ser zoom), mais três linhas transparentes de ar em
-cima, porque o desenho começa em `y=0` e o cabelo encostaria na borda.
-
-Onde cada um entra:
-
-| | Card da Pokédex | Arena | Seção 3D |
-|---|---|---|---|
-| Mário | corpo, frente | frente (adversário, ao fundo) | rosto |
-| Eron | corpo, frente | — | rosto |
-| Gustavo | corpo, frente | **costas** (o seu, em primeiro plano) | rosto |
+Onde cada um entra: corpo de frente no card da Pokédex; na arena, o adversário de
+frente e o Gustavo **de costas** (o seu, em primeiro plano); o rosto na seção 3D.
 
 O enquadramento clássico é esse: o adversário encara você, e a câmera está atrás
 do ombro do seu. Quem diz de que lado cada um está é o **disco no chão**
@@ -163,32 +196,27 @@ meio gigabyte. A geometria era irrelevante.
 ### O que `npm run model:optimize` faz
 
 Reduz as texturas a 1024/1024/512 e as converte para JPEG, depois solda os
-vértices, simplifica a malha (só acima de 100 mil vértices) e comprime a
-geometria com Draco. A memória de GPU cai de ~268 MB para ~13 MB por modelo:
+vértices, simplifica a malha (só acima de 100 mil vértices, mirando ~60 mil) e
+comprime a geometria com Draco. Os 23 modelos (16 professores + 7 formas
+especiais) saem entre 0,24 e 0,82 MB:
 
 | | Disco antes | Disco depois | Vértices |
 |---|---|---|---|
-| Mário | 26,77 MB | **0,36 MB** | 32.180 |
-| Eron | 27,01 MB | **0,35 MB** | 31.099 |
-| Gustavo | 73,61 MB | **1,53 MB** | 853.985 → 268.360 |
+| Professores regulares (×15) | 1,2–3,5 MB | **0,24–0,33 MB** | ~17 mil, intactos |
+| Marcelo | 58,51 MB | **0,57 MB** | 1.013.737 → 68.507 |
+| Formas especiais (×6 esculturas) | 59–64 MB | **0,59–0,82 MB** | ~1 milhão → ~70 mil |
+| Tânia Palmeiras | 1,35 MB | **0,28 MB** | 17.042 |
+
+A lista slug → arquivo de origem é `MODEL_ENTRIES` (`src/config/model.js`), que
+sai do `professors.js`. A página **não** mostra o tamanho dos modelos.
 
 O `textureCompress` do gltf-transform quebra nestas texturas específicas
 (`colourspace: parameter space not set`), então elas passam pelo sharp e só a
 geometria vai pelos passos da lib.
 
-O Gustavo é 4× os outros porque tem 26× mais vértices — um scan sem
-retopologia. Ele **para em 31%** dos triângulos, não nos 25% pedidos, e afrouxar
-o `error` de 0,001 para 0,01 não move o número em um vértice: o limite é
-topológico (o meshopt trava borda e descontinuidade de UV, e um scan é feito de
-costura), não de erro geométrico. Deixar mais leve exige retopologia na origem.
+### Vários modelos, um palco
 
-O tamanho de cada arquivo é gravado em `src/config/model-sizes.js` **medindo o
-resultado**. É esse número que a seção mostra antes de baixar — nunca um valor
-digitado à mão, que envelhece na primeira reotimização.
-
-### Três modelos, um palco
-
-A seção 3D deixa escolher o professor. A regra que importa não é "quantos
+A seção 3D deixa escolher o professor ou uma forma especial. A regra que importa não é "quantos
 arquivos existem" — é **um palco WebGL por página**, e ela mora em
 `useLazyModel.js`: trava no escopo do módulo, `release()` ao trocar de professor
 (o `v-if` desmonta o palco entre um e outro, e é o desmonte que devolve as
@@ -225,14 +253,15 @@ material por contrato (`isTexture`).
 
 `scripts/check-asset-budget.mjs` roda no `prebuild` e **quebra o build** se:
 
-- algum `.glb` passar de **2 MB**;
-- os `.glb` **somados** passarem de **5 MB**;
-- alguma imagem passar de 350 kB;
-- o `model-sizes.js` divergir do arquivo real (a página anuncia o tamanho antes de
-  baixar; um aviso que mente é pior que nenhum aviso);
-- algum `sprite`/`image`/`model` do `professors.js` apontar para um arquivo que
-  não existe (card quebrado é pior que card ausente, e um 404 de `.glb` some
-  dentro do loader — o palco fica carregando para sempre, sem erro);
+- algum `.glb` passar de **2 MB** (ou ficar abaixo de 20 kB — é o cubo de
+  placeholder);
+- os `.glb` **somados** passarem de **20 MB** (orçamento de deploy: o aluno nunca
+  baixa mais de um por vez);
+- alguma imagem passar de 350 kB, ou algum vídeo passar de 8 MB;
+- algum sprite, modelo, vídeo, poster ou foto referenciado em `professors.js`,
+  `links.js` ou `copy.js` não existir em `public/` (card quebrado é pior que card
+  ausente, e um 404 de `.glb` some dentro do loader — o palco fica carregando
+  para sempre, sem erro);
 - o `public/draco/` divergir do decodificador do `three` instalado (versão
   descasada não quebra o build: quebra o navegador do aluno).
 
@@ -242,11 +271,20 @@ segurou. Por isso o limite é código.
 **Uma regra mudou.** A versão anterior proibia mais de um `.glb` em `public/` —
 leitura correta do incidente com arquivos de 27–74 MB, quando "quantos arquivos
 existem" era uma proxy honesta para "quanta memória isto pode pedir". Depois do
-`optimize-model.mjs` os três somam 2,24 MB, a contagem deixou de medir o risco, e
-mantê-la custaria justamente o que o briefing pede na seção 3D: o aluno ver **o**
-professor dele. O que impedia o incidente sempre foi um palco por página, e isso
-continua onde estava. O teto passou a ser por arquivo **e somado** — três
-modelos de 1,6 MB passariam num teto só por arquivo e ainda assim seriam demais.
+`optimize-model.mjs` cada modelo fica abaixo de 1 MB, a contagem deixou de medir
+o risco, e mantê-la custaria justamente o que a seção 3D existe para mostrar: o
+elenco inteiro. O que impedia o incidente sempre foi um palco por página, e isso
+continua onde estava.
+
+## Mídia
+
+Os dois vídeos de `profdex-midia/` (WhatsApp, 40 e 68 MB) foram comprimidos uma
+vez com ffmpeg — H.264 + AAC, `+faststart`, CRF 27 (teaser vertical, 720×1280,
+5,5 MB) e CRF 31 (encerramento, 1280×720, 7,4 MB) — e têm poster `.webp` (~30 kB).
+O player é o nativo, com `preload="none"`: nenhum byte de vídeo sai antes do play.
+
+As fotos do time (4 das 14 do evento) e o relatório de métricas saem em `.webp`
+com duas larguras para o `srcset` (`public/photos/`), todas abaixo de 120 kB.
 
 ## Números medidos
 
@@ -302,6 +340,50 @@ Com `prefers-reduced-motion: reduce`, o GSAP não é baixado e o 3D continua
 disponível, sem rotação automática: preferência de movimento não deve negar
 conteúdo.
 
+### A roda que gira na mão
+
+`TypeWheelSection.vue` tem um quarto tipo de movimento, que não é nenhuma das
+três camadas: **física própria num `requestAnimationFrame`**, ~40 linhas, zero
+bytes de biblioteca. Segurar a roda carrega impulso, soltar deixa a inércia
+correr com atrito exponencial, e ao parar ela trava no múltiplo de 40° mais
+próximo. O tipo que ficou sob o ponteiro do topo é a seleção.
+
+Quatro decisões que não são óbvias:
+
+1. **O estado é um ângulo.** `rotation` é a fonte de verdade; `selectedId` é
+   `indexAtTop(rotation)` gravado no momento do assentamento. Ele é publicado no
+   INÍCIO da parada, não no fim — assim o painel acompanha a roda chegando, sem
+   repintar a cada 40° durante o giro livre.
+2. **Os ícones contra-giram.** O grupo dos setores gira por CSS; cada ícone
+   recebe `rotate(-θ 14 14)` no atributo SVG. Sem isso os nove símbolos ficam de
+   cabeça para baixo na primeira meia volta. É também por isso que o
+   assentamento é interpolado em JS e não por `transition` de CSS: os dois
+   precisam sair do MESMO número, ou o símbolo fica para trás do setor.
+3. **O scroll-spin não disputa o transform.** O GSAP gira o `<svg>` inteiro
+   (ponteiro junto); a mão gira só o grupo interno. No primeiro `pointerdown` o
+   ângulo do scroll é dobrado no da mão e o ScrollTrigger morre — daí em diante
+   a roda é do usuário.
+4. **`touch-action: pan-y`.** A roda ocupa meia tela no celular; capturar o
+   gesto vertical prenderia o aluno na seção. O que sobra para o gesto é o toque
+   parado, que é exatamente o clique longo. Se o navegador decidir rolar no meio
+   do giro, chega um `pointercancel` e a roda é solta com a inércia que tinha.
+
+O clique curto continua selecionando o setor tocado (agora ele também viaja até
+o topo). Com movimento reduzido não há giro nem inércia: o clique curto é um
+corte seco e o clique longo avança um tipo. Pelo teclado, os nove chips
+continuam alcançando tudo, e ←/→ andam de um tipo por vez — a `<svg>` segue
+`aria-hidden`, e nunca foi a única porta.
+
+### As variações do reveal
+
+O reveal global (`useReveal.js` + `data-reveal`) ganhou duas variações em
+`base.css`, aplicadas por classe no mesmo elemento observado, sem observador
+novo: `.reveal-steps` troca o easing por `steps()` (para caixas de UI de jogo) e
+`.reveal-stagger` mantém o contêiner visível e faz os FILHOS entrarem em
+cascata, com o índice vindo do template (`--reveal-i`, 70ms por posição). Usam
+isso a lista de passos, o fluxo do PvP, a grade da Pokédex, as barras da tabela
+de pontos e as da escada de Elo.
+
 ## Acessibilidade
 
 Contraste conferido e anotado em `tokens.css`. A armadilha: `--unifil-gold` sobre
@@ -315,13 +397,45 @@ sobre o fundo escuro, mantendo o matiz (o NPI, `#495057`, dava 1,7:1).
 A roda SVG é `aria-hidden`: toda a informação dela existe em HTML — os nove
 botões, o painel do tipo e uma tabela completa de vantagens para leitor de tela.
 
+## Simulador do app (`src/app-demo/`)
+
+Com o jogo fora do ar, a seção "Experimente" (`#simulador`) traz uma réplica
+navegável do app dentro de um celular desenhado: ProfDex (coleção + ficha),
+Capturar (scanner sem câmera), Batalha (treino jogável contra a IA), Ranking e
+Raid (o lendário Sérgio Tanaka, cena a cena).
+
+- **Motor de batalha:** `src/app-demo/engine/` é cópia do motor de TREINO do app
+  (`moves.js`, `battleEngine.js`, `useBattle.js`…), que já rodava 100% no
+  navegador. Só os imports mudaram, e o `useBattle` expõe `state`/`tick` para as
+  pílulas de efeito. Se o balanceamento mudar no app, recopie.
+- **Dados:** `src/app-demo/mock.js` é tudo fictício (coleção, IVs com semente,
+  ranking com apelidos genéricos). Nenhum nome de aluno aparece.
+- **Raid:** `src/app-demo/raid-script.js` usa os textos do servidor do app; a
+  sequência (Matemática no estágio 2, Robótica no 3) é uma raid possível.
+- **Elenco:** nomes, slugs e tipos vêm do cadastro de produção
+  (`GET /api/professors` e `/api/professors/rares`); os sprites, de
+  `/uploads/<slug>-{frente,costas}[-e2|-e3].png`, copiados para
+  `assets-src/sprites/` (raros e lendário em `assets-src/sprites/raros/`).
+- O simulador é um chunk separado, montado só quando a seção chega perto da tela.
+
 ## Deploy
 
-Projeto Vercel próprio, build `vite build` → `dist`. O `vercel.json` só define
-cache longo para `/models/` e `/draco/`; não há reescrita de `/api`, porque a
-landing não fala com o backend — o CTA é um link absoluto, centralizado em
-`src/config/links.js`. A pendência do Cloudflare descrita em `DEPLOY-FRONT.md`
-não afeta esta página.
+Dois caminhos, o mesmo código:
+
+- **Vercel (projeto próprio, raiz do domínio).** Importe o repositório; o
+  `vercel.json` já define `npm run build:vercel` (orçamento de assets + build com
+  `VITE_BASE=/`) e a saída `dist`. Cache `immutable` para `/assets/` e `/draco/`,
+  cache de uma semana para modelos, vídeos, fotos e sprites. O `og:url` e o
+  `og:image` usam o domínio de produção que a Vercel injeta no build
+  (`VERCEL_PROJECT_PRODUCTION_URL`); para um domínio próprio, defina
+  `VITE_SITE_URL=https://seu-dominio/` nas variáveis do projeto. O
+  `.vercelignore` deixa o `node_modules` versionado de fora, para a Vercel
+  instalar as dependências de Linux.
+- **nginx do monorepo (`/landing/`).** `Dockerfile` + `nginx.conf`, base padrão
+  `/landing/` — continua funcionando como antes.
+
+A landing não fala com o backend nem linka para o app: o jogo está fora do ar, e
+os botões levam às seções da própria página.
 
 `public/fonts/` traz a `Press Start 2P` auto-hospedada (OFL, 12,5 kB): serve para
 tirar dois handshakes com o Google do caminho crítico. Ver o README de lá.

@@ -147,13 +147,8 @@ async function put(rel, buf) {
 // A lista sai do professors.js: um professor novo lá ganha placeholder aqui sem
 // ninguém tocar neste arquivo.
 for (const prof of CAPTURABLE) {
-  const svg = portraitSvg(prof.slug)
-  await put(`professors/${prof.slug}-cartoon.png`, await sharp(svg).png().toBuffer())
-  await put(`professors/${prof.slug}-cartoon.webp`, await sharp(svg).webp({ quality: 82 }).toBuffer())
-
-  // Os sprites também precisam existir, ou os cards da Pókedex e a arena ficam
-  // com imagem quebrada — que é pior que card ausente. 64×64, o mesmo lado da
-  // arte real, para o `pixelated` do CSS ampliar a mesma grade.
+  // Os sprites precisam existir, ou os cards da Pokédex e a arena ficam com
+  // imagem quebrada — que é pior que card ausente.
   //
   // Na prática isto quase nunca roda: os sprites de verdade estão versionados em
   // `assets-src/sprites/`, então `npm run assets:optimize` resolve sem depender
@@ -196,10 +191,9 @@ await put(
 // arquivo não existe, e um 404 de .glb SOME dentro do GLTFLoader — o palco fica
 // carregando para sempre, sem erro na tela nem no console.
 //
-// Estes cubos jamais chegam à produção: o `check:assets` compara cada arquivo com
-// o tamanho medido em `src/config/model-sizes.js`, e 872 bytes não passam por
-// 0,35 MB. O build quebra mandando rodar `npm run model:optimize`, que é
-// exatamente a instrução certa.
+// Estes cubos jamais chegam à produção: o `check:assets` recusa qualquer .glb
+// abaixo de MIN_MODEL_KB, e 872 bytes não passam. O build quebra mandando rodar
+// `npm run model:optimize`, que é exatamente a instrução certa.
 const cubo = cubeGlb()
 for (const prof of CAPTURABLE.filter((p) => p.model)) {
   await put(prof.model.replace(/^\//, ''), cubo)

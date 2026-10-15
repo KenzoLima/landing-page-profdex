@@ -1,103 +1,86 @@
 // O elenco da Pokédex.
 //
-// FONTE: profdex-front/src/data/{professorTypes,professorSprites,professorModels}.js.
-//
-// ⚠️ Correção em relação ao LANDING-PAGE.md §3, que fala em "16 professores
-// mapeados": o PROFESSOR_TYPES tem 16 CHAVES, não 16 pessoas. Duas são pares de
-// apelido — o mapa registra slug e nome porque `typesForProfessor` tenta os
-// dois ao casar o que vem da API:
-//
-//     'ricardo-petri' ≡ 'ricardo'   (ambos ['ia-ml'])
-//     't-camis'       ≡ 'camis'     (ambos ['calculo', 'logica'])
-//
-// Logo: 14 professores distintos, 3 com arte. A landing NUNCA digita esses
-// números — eles saem de `TOTAL_PROFESSORS` e `LOCKED_COUNT`, derivados daqui.
-// Um professor novo com arte é uma linha nesta lista, e a página se ajusta.
+// FONTE: o cadastro do app em produção (`GET /api/professors` e
+// `/api/professors/rares`) — slug, nome e tipos são os de lá, sem ajuste. Os
+// sprites vêm de `/uploads/<slug>-{frente,costas}.png` (copiados para
+// assets-src/sprites/) e os modelos, da pasta "professores profdex 3D".
+// A landing NUNCA digita quantos professores existem: os totais saem daqui.
+
+// Import relativo, e não pelo alias `@`: este módulo também é lido pelos scripts
+// de build (Node puro), e o `@` só existe dentro do Vite.
+import { asset } from '../config/asset.js'
 
 /**
- * Os únicos com arte e presença no seed do banco.
+ * Monta uma entrada do elenco a partir do slug.
  *
- * Cada um carrega TRÊS representações, porque a página usa três coisas
- * diferentes e trocá-las de lugar é o erro fácil aqui:
- *
- *  · `sprite` / `spriteBack` — o BONECO, 64×64, corpo inteiro sobre
- *                 transparência. É a arte que a batalha usa no app, e o que o
- *                 briefing pede na landing (§"Batalha: enquadramento clássico
- *                 com os sprites pixel"). Sempre com `image-rendering: pixelated`.
- *                 O de costas existe porque o enquadramento clássico mostra quem
- *                 você controla de costas, em primeiro plano.
- *  · `spriteFace` — recorte do rosto, tirado do sprite de frente. É o retrato
- *                 da seção 3D: um zoom, na mesma linguagem do resto.
- *  · `image`    — o cartoon emoldurado em QR. Retrato de ficha, não de combate:
- *                 é um card quadrado com fundo, não um recorte de personagem.
- *  · `model`    — o `.glb` já otimizado (scripts/optimize-model.mjs). Só a seção
- *                 3D toca nisto, e só depois de clique.
+ *  · `sprite` / `spriteBack` — o BONECO de corpo inteiro, de frente e de costas,
+ *                 num canvas quadrado com os pés embaixo
+ *                 (scripts/optimize-assets.mjs).
+ *  · `spriteFace` — recorte do rosto, tirado do sprite de frente.
+ *  · `model`      — o `.glb` otimizado (scripts/optimize-model.mjs).
+ *  · `modelSource` — o arquivo de origem na pasta de modelos. Só o script lê.
  */
+function entrada(slug, name, types, modelSource, extra = {}) {
+  return {
+    slug,
+    name,
+    types,
+    sprite: asset(`/professors/${slug}-pixel.png`),
+    spriteBack: asset(`/professors/${slug}-pixel-costas.png`),
+    spriteFace: asset(`/professors/${slug}-pixel-face.png`),
+    model: modelSource ? asset(`/models/${slug}.glb`) : null,
+    modelSource,
+    ...extra,
+  }
+}
+
+/** Os professores regulares — os que aparecem na Pokédex e na batalha. */
 export const CAPTURABLE = [
-  {
-    slug: 'mario',
-    name: 'Mário',
-    types: ['algoritmos'],
-    sprite: '/professors/mario-pixel.png',
-    spriteBack: '/professors/mario-pixel-costas.png',
-    spriteFace: '/professors/mario-pixel-face.png',
-    // Os arquivos `-cartoon` do app são JPEG apesar da extensão .png. O nome foi
-    // mantido igual ao do app de propósito, para os dois repositórios seguirem
-    // comparáveis; o .webp ao lado é gerado por scripts/optimize-assets.mjs.
-    image: '/professors/mario-cartoon.webp',
-    fallback: '/professors/mario-cartoon.png',
-    model: '/models/mario-hero.glb',
-  },
-  {
-    slug: 'eron',
-    name: 'Eron',
-    types: ['arquitetura', 'ia-ml'],
-    sprite: '/professors/eron-pixel.png',
-    spriteBack: '/professors/eron-pixel-costas.png',
-    spriteFace: '/professors/eron-pixel-face.png',
-    image: '/professors/eron-cartoon.webp',
-    fallback: '/professors/eron-cartoon.png',
-    model: '/models/eron-hero.glb',
-  },
-  {
-    slug: 'gustavo',
-    name: 'Gustavo',
-    types: ['arquitetura'],
-    sprite: '/professors/gustavo-pixel.png',
-    spriteBack: '/professors/gustavo-pixel-costas.png',
-    spriteFace: '/professors/gustavo-pixel-face.png',
-    image: '/professors/gustavo-cartoon.webp',
-    fallback: '/professors/gustavo-cartoon.png',
-    model: '/models/gustavo-hero.glb',
-    // Gustavo é também o boneco que o jogador controla na arena PvE — por isso a
-    // seção de batalha usa o `spriteBack` dele, de costas em primeiro plano.
-    isPlayerAvatar: true,
-  },
+  entrada('eron', 'Eron', ['arquitetura', 'ia'], 'professor-eron.glb'),
+  entrada('guilherme', 'Guilherme', ['matematica'], 'professor-guilherme.glb'),
+  entrada('gustavo', 'Gustavo', ['arquitetura', 'ia'], 'professor-gustavo.glb'),
+  entrada('joao-marcos', 'João Marcos', ['robotica', 'banco'], 'professor-joao-marcos.glb'),
+  entrada('joao-victor', 'João Vitor', ['algoritmos', 'ia'], 'professor-joao.glb'),
+  entrada('luiz-felipe', 'Luiz Felipe', ['robotica', 'redes'], 'professor-luis.glb'),
+  entrada('marcelo-yamamoto', 'Marcelo Yamamoto', ['algoritmos'], 'professor-marcelo.glb'),
+  entrada('mario', 'Mario', ['redes', 'banco'], 'professor-mario.glb'),
+  entrada('matheus', 'Matheus', ['engenharia-software'], 'professor-matheus.glb'),
+  entrada('renata', 'Renata', ['engenharia-software', 'algoritmos'], 'professora-renata.glb'),
+  entrada('robson', 'Robson', ['banco'], 'professor-robson.glb'),
+  entrada('simone-tanaka', 'Simone Tanaka', ['engenharia-software', 'humanas'], 'professora-simone.glb'),
+  entrada('suzana', 'Suzana', ['matematica'], 'professora-suzana.glb'),
+  entrada('tiago-ravache', 'Tiago Ravache', ['arquitetura', 'redes'], 'professor-ravache.glb'),
+  entrada('tania-camila', 'Tânia Camila', ['humanas', 'matematica'], 'professora-tcamis.glb'),
+  entrada('wilson', 'Wilson', ['humanas'], 'professor-wilson.glb'),
 ]
 
 /** Acesso por slug — o que as seções usam para pegar um combatente específico. */
 export const BY_SLUG = Object.fromEntries(CAPTURABLE.map((p) => [p.slug, p]))
 
 /**
- * Professores mapeados no sistema de tipos mas ainda sem retrato.
- *
- * Só o tipo é exposto — o nome fica em segredo, que é exatamente a graça de uma
- * Pokédex com entradas por descobrir. Os tipos vêm do PROFESSOR_TYPES; o
- * primeiro tipo de cada um é o que colore a silhueta.
+ * Os raros. No app eles aparecem como silhueta dourada "✦ ???" até serem
+ * capturados; quatro deles formam o NDE da Coordenação na raid.
  */
-export const LOCKED = [
-  { types: ['ia-ml'] }, // Ricardo Petri
-  { types: ['npi'] }, // Simone
-  { types: ['calculo', 'logica'] }, // T. Camis
-  { types: ['logica', 'algoritmos'] }, // João
-  { types: ['logica'] }, // Marcelo — "Programação" virou Lógica
-  { types: ['logica'] }, // Guilherme
-  { types: ['npi'] }, // Renata
-  { types: ['ia-ml'] }, // Serginho
-  { types: ['banco'] }, // Marcos — "Segurança" foi descartada
-  { types: ['robotica', 'redes'] }, // Igor
-  { types: ['banco'] }, // Edson — idem Marcos
+export const RARES = [
+  entrada('eron-muay-thai', 'Eron Muay Thai', ['arquitetura'], 'eron-muaythai.glb', { nde: true }),
+  entrada('joao-ciborgue', 'João Ciborgue', ['algoritmos'], 'joao-ciborgue.glb', { nde: true }),
+  entrada('simone-corredora', 'Simone Corredora', ['engenharia-software'], 'simone-corredora.glb', { nde: true }),
+  entrada('tania-palmeiras', 'TCamis Palmeiras', ['matematica'], 'tcamis-palmeiras.glb', { nde: true }),
+  entrada('gustavo-de-ferro', 'Gustavo de Ferro', ['robotica'], 'gustavo-de-ferro.glb'),
+  entrada('ricardo-infiltrado', 'Ricardo Infiltrado', ['ia'], 'ricardo-infliltrado.glb'),
 ]
 
-export const TOTAL_PROFESSORS = CAPTURABLE.length + LOCKED.length
-export const LOCKED_COUNT = LOCKED.length
+export const RARE_BY_SLUG = Object.fromEntries(RARES.map((p) => [p.slug, p]))
+
+/**
+ * O lendário, chefe da raid. Três estágios, um por terço do HP: o 1º é o tipo
+ * do cadastro (Engenharia de Software); o 2º e o 3º são sorteados na roda.
+ */
+export const LEGENDARY = entrada('sergio-tanaka', 'Sérgio Tanaka', ['engenharia-software'], null, {
+  stages: [1, 2, 3].map((n) => ({
+    sprite: asset(`/professors/sergio-tanaka${n === 1 ? '' : `-e${n}`}-pixel.png`),
+    spriteBack: asset(`/professors/sergio-tanaka${n === 1 ? '' : `-e${n}`}-pixel-costas.png`),
+  })),
+})
+
+export const TOTAL_PROFESSORS = CAPTURABLE.length

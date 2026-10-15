@@ -2,22 +2,24 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" href="/landing/favicon.ico" />
 
     <!-- Sem `user-scalable=no`: o app usa isso porque é uma UI de jogo em tela
         cheia, mas impedir o zoom numa página de LEITURA é falha de
         acessibilidade (WCAG 1.4.4). -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- `viewport-fit=cover` liga as `env(safe-area-inset-*)` usadas na barra
+        fixa e no hero: sem ele o iPhone com notch ignora as áreas seguras. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
     <!-- #995200 é a cor de marca real (profdex-front/src/style.css).
         O index.html do app ainda declara #CC0000, de uma paleta anterior. -->
     <meta name="theme-color" content="#995200" />
     <meta name="color-scheme" content="dark" />
 
-    <title>ProfDex — Colecione seus professores | TechFil</title>
+    <title>ProfDex: Colecione seus professores | TechFil</title>
     <meta
       name="description"
-      content="Uma Pokédex de professores na TechFil: responda o quiz, capture o QR code do professor e batalhe contra outros alunos em turnos."
+      content="Uma Pokédex de professores na TechFil: responda ao quiz, capture o QR code do professor e batalhe contra outros alunos em turnos."
     />
 
     <!-- Open Graph: o card que aparece quando alguém cola o link no grupo do
@@ -25,12 +27,20 @@
       A imagem é gerada por scripts/optimize-assets.mjs. -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="ProfDex" />
-    <meta property="og:title" content="ProfDex — Colecione seus professores" />
+    <meta property="og:title" content="ProfDex: Colecione seus professores" />
     <meta
       property="og:description"
-      content="Responda o quiz, capture o QR do professor e batalhe em turnos. Semana Tecnológica da UniFil."
+      content="Responda ao quiz, capture o QR do professor e batalhe em turnos. Um projeto de alunos da UniFil para a TechFil."
     />
-    <meta property="og:image" content="/og-image.png" />
+    <!-- Absoluta de propósito: o crawler do WhatsApp/Telegram não resolve
+      caminho relativo. `https://profdex.unifil.tech/landing/` é trocado no build pelo endereço público
+      (VITE_SITE_URL, o domínio da Vercel ou o do nginx — ver vite.config.mjs);
+      o Vite não reescreve meta[content] com o `base`. -->
+    <meta property="og:url" content="https://profdex.unifil.tech/landing/" />
+    <meta
+      property="og:image"
+      content="https://profdex.unifil.tech/landing/og-image.png"
+    />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Logo do ProfDex: uma águia em pixel art dentro de uma bola de captura." />
@@ -42,15 +52,15 @@
         `preload` porque ela desenha o título do hero — o elemento do LCP. -->
     <link
       rel="preload"
-      href="/fonts/press-start-2p-latin.woff2"
+      href="/landing/fonts/press-start-2p-latin.woff2"
       as="font"
       type="font/woff2"
       crossorigin
     />
-    <script type="module" crossorigin src="/assets/index-Tedir9TZ.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-DDMVOB14.css">
+    <script type="module" crossorigin src="/landing/assets/index-DoS-I4zv.js"></script>
+    <link rel="stylesheet" crossorigin href="/landing/assets/index-0weOANXY.css">
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app"></div>
   </body>
 </html>

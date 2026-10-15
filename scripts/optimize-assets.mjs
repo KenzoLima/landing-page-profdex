@@ -2,56 +2,47 @@
  * Gera `public/professors/*` a partir da arte de origem.
  *
  *   node scripts/optimize-assets.mjs
- *   PROFDEX_FRONT=D:\profdex\main\profdex-front node scripts/optimize-assets.mjs
  *
- * Duas fontes, porque a arte vive em dois lugares:
- *
- *  · Os **cartoons** vêm do app (`profdex-front/public/professors/*-cartoon.png`).
- *    São o retrato de ficha: card quadrado, moldura de QR, fundo. Viram
- *    `-cartoon.webp` (o que quase todo mundo baixa) e `-cartoon.png` (o fallback
- *    do `<picture>`). O original é JPEG apesar da extensão `.png` — o nome foi
- *    mantido igual ao do app de propósito, para os dois repositórios seguirem
- *    comparáveis.
- *
- *  · Os **sprites** vêm de `assets-src/sprites/`, versionados aqui. São os
- *    bonecos de corpo inteiro, de frente e de costas, que a batalha usa. Viram
- *    `-pixel.png` e `-pixel-costas.png`.
+ * Os **sprites** vêm de `assets-src/sprites/`, versionados aqui. São os bonecos
+ * de corpo inteiro, de frente e de costas, que a Pokédex e a batalha usam.
+ * Viram `-pixel.png`, `-pixel-costas.png` e o recorte `-pixel-face.png`.
  *
  * ── Sobre os sprites, que é a parte que merece explicação ────────────────────
  *
- * A arte real é 64×64 — é o que dizem os `.ase` do Aseprite
- * (`sprite-gustavo-frente-parado.ase`: 13 quadros, 64×64) e é o tamanho do
- * `gustavo-pixel.png` que o app exporta.
+ * A arte do elenco atual (pasta "professores profdex", ~370×650 px por arquivo)
+ * é pixel art detalhada que já chegou reamostrada: não há grade nativa limpa
+ * para recuperar. Cada boneco é recortado pela caixa do desenho, reduzido para
+ * caber em SPRITE_SIDE de altura e assentado embaixo, no centro, de um canvas
+ * quadrado — todos pisam na mesma linha quando ficam lado a lado.
  *
- * Só que cinco dos seis arquivos de origem NÃO estão nesse tamanho: são capturas
- * de tela em 3× passadas por um removedor de fundo. Dá para medir — o boneco do
- * Eron ocupa 106×192 px, exatamente 3× os 35×64 do Gustavo. Publicá-los como
- * estão colocaria lado a lado um sprite com pixel de 1 px e outro com pixel de
- * 3 px; não lê como dois sprites, lê como um sprite e uma foto.
+ * O **alfa é binarizado**: o removedor de fundo deixa uma borda macia
+ * semitransparente (e uma sombra roxa em alguns arquivos), e pixel art não tem
+ * meio-termo — ou o pixel é do boneco, ou é do fundo.
  *
- * Então cada sprite volta à grade nativa (altura 64) e tem o **alfa binarizado**:
- * o removedor de fundo deixa ~9% dos pixels numa borda macia semitransparente, e
- * pixel art não tem meio-termo — ou o pixel é do boneco, ou é do fundo.
- *
- * Quem já está na grade certa (o Gustavo de frente, exportado do Aseprite) passa
- * intacto: `nativeGrid()` mede antes de reamostrar. Trocar qualquer arquivo de
- * `assets-src/sprites/` por um export 64×64 de verdade desliga o reescalonamento
- * sozinho, sem mudar uma linha aqui.
+ * Os `.jpg` da pasta de origem são PNG com alfa apesar da extensão; copie-os
+ * para `assets-src/sprites/<slug>-{frente,costas}.png`.
  */
 import { existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import sharp from 'sharp'
 
-import { CAPTURABLE } from '../src/data/professors.js'
-import { resolveAppRoot } from './app-source.mjs'
+import { CAPTURABLE, LEGENDARY, RARES } from '../src/data/professors.js'
 
 const root = path.resolve(import.meta.dirname, '..')
 const pub = path.join(root, 'public')
 const spriteSrc = path.join(root, 'assets-src', 'sprites')
 
-/** Lado do sprite publicado. O tamanho de autoria da arte, não uma escolha nossa. */
-const SPRITE_SIDE = 64
+/**
+ * Lado do sprite publicado.
+ *
+ * O elenco atual é arte de ~370×650 px sem grade nativa limpa (foi reamostrada
+ * antes de chegar aqui), então não existe "o tamanho de autoria" para voltar.
+ * 320 cobre o maior uso na página (~170 px CSS) com folga para tela 2×, e
+ * mantém o canvas quadrado com os pés embaixo — o contrato que as seções já
+ * esperam do sprite.
+ */
+const SPRITE_SIDE = 320
 
 /**
  * Acima deste alfa o pixel é do boneco; abaixo, é fundo.
@@ -62,33 +53,6 @@ const SPRITE_SIDE = 64
  * trazer halo junto.
  */
 const ALPHA_CUT = 110
-
-/** Lado do retrato publicado. Os originais variam de 460 a 488 px. */
-const PORTRAIT_SIDE = 460
-
-/** Cores da paleta indexada do PNG — o fallback do `<picture>`. */
-const PNG_COLORS = 128
-
-/**
- * Qualidade do WebP.
- *
- * O número tem que ser BAIXO o bastante para o WebP ganhar do PNG indexado, e
- * isso não é automático: o `<picture>` prefere o WebP, então um WebP maior que o
- * fallback faz a página servir o arquivo pior para quase todo mundo. Medido nos
- * três cartoons (kB):
- *
- *   | q  | Mário | Eron | Gustavo |
- *   |----|-------|------|---------|
- *   | 60 |  18,6 | 16,8 |    17,4 |
- *   | 68 |  20,2 | 18,0 |    18,9 |
- *   | 82 |  27,8 | 25,5 |    25,7 |
- *   | PNG|  23,8 | 23,4 |    18,2 |
- *
- * 82 (o valor anterior) perdia para o PNG nos três. 60 ganha nos três, e o custo
- * visual é invisível nesta arte: cartoon é cor chapada com contorno duro, que é
- * exatamente o que o WebP com perda preserva bem.
- */
-const WEBP_QUALITY = 60
 
 const kb = (bytes) => (bytes / 1024).toFixed(1)
 
@@ -174,7 +138,7 @@ async function normalizeSprite(file) {
         top: SPRITE_SIDE - info.height,
       },
     ])
-    .png({ palette: true, colors: 64 })
+    .png({ palette: true, colors: 256, dither: 0.6, effort: 10 })
     .toBuffer()
 }
 
@@ -220,59 +184,43 @@ async function faceCrop(spriteFile) {
     },
   })
     .composite([{ input: cabeca, left: HEADROOM, top: HEADROOM }])
-    .png({ palette: true, colors: 64 })
+    .png({ palette: true, colors: 256, dither: 0.6, effort: 10 })
     .toBuffer()
 }
 
-/** Retrato quadrado: o cartoon centralizado, sem esticar. */
-function portrait(sourceFile) {
-  return sharp(sourceFile).resize(PORTRAIT_SIDE, PORTRAIT_SIDE, {
-    fit: 'cover',
-    position: 'centre',
-    kernel: 'lanczos3',
-  })
-}
-
-const appRoot = resolveAppRoot()
-const srcProfessors = path.join(appRoot, 'public', 'professors')
-
-for (const prof of CAPTURABLE) {
-  // ── Retrato de ficha ──────────────────────────────────────────────────────
-  const cartoon = path.join(srcProfessors, `${prof.slug}-cartoon.png`)
-  if (existsSync(cartoon)) {
-    await write(
-      `professors/${prof.slug}-cartoon.webp`,
-      await portrait(cartoon).webp({ quality: WEBP_QUALITY }).toBuffer(),
-    )
-    await write(
-      `professors/${prof.slug}-cartoon.png`,
-      await portrait(cartoon).png({ palette: true, colors: PNG_COLORS }).toBuffer(),
-    )
-  } else {
-    console.warn(`· ${prof.slug}: não achei ${cartoon}`)
-  }
-
-  // ── Bonecos ───────────────────────────────────────────────────────────────
+/**
+ * Gera frente, costas e rosto de um boneco.
+ *
+ * `base` é o nome do arquivo de origem sem o lado (`eron`, `raros/sergio-tanaka`)
+ * e `sufixo` separa os estágios do lendário (`-e2`, `-e3`).
+ */
+async function boneco(base, slug, sufixo = '') {
   for (const [lado, saida] of [
-    ['frente', `professors/${prof.slug}-pixel.png`],
-    ['costas', `professors/${prof.slug}-pixel-costas.png`],
+    ['frente', `professors/${slug}${sufixo}-pixel.png`],
+    ['costas', `professors/${slug}${sufixo}-pixel-costas.png`],
   ]) {
-    const origem = path.join(spriteSrc, `${prof.slug}-${lado}.png`)
+    const origem = path.join(spriteSrc, `${base}-${lado}${sufixo}.png`)
     if (!existsSync(origem)) {
-      console.warn(`· ${prof.slug} (${lado}): não achei assets-src/sprites/${prof.slug}-${lado}.png`)
+      console.warn(`· ${slug}${sufixo} (${lado}): não achei assets-src/sprites/${base}-${lado}${sufixo}.png`)
       continue
     }
     await write(saida, await normalizeSprite(origem))
   }
 
   // O rosto sai do sprite JÁ NORMALIZADO, não da origem: recortar antes de
-  // acertar a grade daria um rosto na escala errada, que é o problema que a
-  // normalização existe para resolver.
-  const frente = path.join(pub, 'professors', `${prof.slug}-pixel.png`)
+  // acertar a escala daria um rosto no tamanho errado.
+  const frente = path.join(pub, 'professors', `${slug}${sufixo}-pixel.png`)
   if (existsSync(frente)) {
-    await write(`professors/${prof.slug}-pixel-face.png`, await faceCrop(frente))
+    await write(`professors/${slug}${sufixo}-pixel-face.png`, await faceCrop(frente))
   }
 }
+
+for (const prof of CAPTURABLE) await boneco(prof.slug, prof.slug)
+
+// Raros e lendário moram em assets-src/sprites/raros/. O lendário tem um boneco
+// por estágio da raid (o 1º sem sufixo, depois -e2 e -e3).
+for (const prof of RARES) await boneco(`raros/${prof.slug}`, prof.slug)
+for (const sufixo of ['', '-e2', '-e3']) await boneco(`raros/${LEGENDARY.slug}`, LEGENDARY.slug, sufixo)
 
 // A águia é arte real e versionada aqui; o favicon e o Open Graph saem dela para
 // a aba do navegador e o card do WhatsApp serem a mesma marca da página.

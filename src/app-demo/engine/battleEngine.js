@@ -1,0 +1,568 @@
+// PROVENIÊNCIA: cópia de profdex-front/src/composables/battleEngine.js (repo principal, D:\profdex\main).
+// Só os caminhos de import foram ajustados. A landing roda o motor do TREINO,
+// que no app já é 100% no navegador — nada aqui fala com servidor.
+
+// Motor de batalha puro (sem Vue) — testável de forma headless.
+//
+// Modela atributos (rigor/didática/raciocínio), estágios (à la Pokémon),
+// status (paralisia/confusão/dano-por-turno), escudos (bloqueio/redução/
+// reflexão/esquiva), buffs temporizados e por-turno, e resolve golpes em uma
+// lista de EVENTOS que a camada de UI (useBattle.js) anima com timing.
+//
+// A vantagem de tipo vem de types.js (effectiveness): 2× / 0,5× / 1×.
+
+import { typeMultiplier } from '../../data/types.js'
+import { EFFECT, STAT, STAT_LABEL, CATEGORY, getMoveById } from './moves.js'
+import {
+  CONFUSION_SELF_HIT_CHANCE,
+  CONFUSION_SELF_HIT_FRACTION,
+  DAMAGE_SCALE,
+  DEFAULT_MAX_HP,
+  DOT_DEFAULT_POWER,
+  DOT_DEFAULT_TURNS,
+  EVASION_PER_STAGE,
+  GROW_TICK_TURNS,
+  IV_BONUS_MAX,
+  MIN_HIT_CHANCE,
+  PARALYSIS_SKIP_CHANCE,
+  STAB,
+  STAGE_MAX,
+  STAGE_MIN,
+  VARIANCE_MIN,
+  WEAK_POINT_CAP,
+} from './battle-constants.js'
+
+// Os números de balanceamento saíram daqui para `data/battle-constants.js`: o
+// teste de paridade do back (`engine-parity.spec.ts`) só consegue ler arquivos
+// sem import, e comparar as constantes é o que impede treino e ranqueado de
+// divergirem em silêncio. Reexportados porque telas e testes importam daqui.
+export { DEFAULT_MAX_HP, IV_BONUS_MAX }
+
+export const STATUS = {
+  PARALISIA: 'paralisia',
+  CONFUSAO: 'confusao',
+  QUEIMADURA: 'queimadura', // dano por turno
+}
+
+const STATUS_LABEL = {
+  paralisia: 'Travado',
+  confusao: 'Confuso',
+  queimadura: 'Queimando',
+}
+
+export function statusLabel(status) {
+  return status ? STATUS_LABEL[status.kind] || '' : ''
+}
+
+/** Converte um IV bruto (0–15) no bônus efetivo de combate (0–IV_BONUS_MAX). */
+export function ivBonus(iv) {
+  return ((iv ?? 0) / 15) * IV_BONUS_MAX
+}
+
+// ── Combatente ──────────────────────────────────────────────────────────────
+export function createCombatant({ name, type, types, maxHp, moves = [], ivs = {} }) {
+  // Aceita `types` (1–2) ou `type` (string) por compatibilidade.
+  const typeList = (Array.isArray(types) ? types : types ? [types] : type ? [type] : []).filter(Boolean)
+  const resolvedMaxHp = maxHp ?? DEFAULT_MAX_HP + Math.round(ivBonus(ivs.ivHp))
+  return {
+    name,
+    types: typeList,
+    maxHp: resolvedMaxHp,
+    hp: resolvedMaxHp,
+    moves,
+    stages: { rigor: 0, didatica: 0, raciocinio: 0 },
+    baseStats: {
+      rigor: 100 + ivBonus(ivs.ivRigor),
+      didatica: 100 + ivBonus(ivs.ivDidatica),
+      raciocinio: 100 + ivBonus(ivs.ivRaciocinio),
+    },
+    status: null, // { kind, turns, power? }
+    shields: [], // { mode:'block'|'reduce'|'reflect'|'evade', amount, turns }
+    timedBuffs: [], // { stat, delta, turns } — revertem ao expirar
+    // { stat, delta, turns } — sobem o estágio a cada turno. Cada tique também
+    // entra em `timedBuffs`, por isso decai (era permanente, ver
+    // GROW_TICK_TURNS).
+    regen: [],
+    debuffImmuneTurns: 0,
+    forceMiss: false, // próximo ataque deste combatente erra
+    usage: {}, // moveId -> nº de usos (grow/accuracyGain)
+    lastAttackId: null, // último ataque (repeatLast)
+    hpAtTurnStart: resolvedMaxHp, // p/ undoDamage
+  }
+}
+
+const clampStage = (v) => Math.max(STAGE_MIN, Math.min(STAGE_MAX, v))
+
+// Multiplicador de atributo a partir do estágio (padrão Pokémon).
+function stageMultiplier(stage) {
+  const s = clampStage(stage)
+  return s >= 0 ? (2 + s) / 2 : 2 / (2 - s)
+}
+
+export function effectiveStat(combatant, stat) {
+  return ((combatant.baseStats?.[stat] ?? 100) / 100) * stageMultiplier(combatant.stages[stat])
+}
+
+const rand = (min, max) => min + Math.random() * (max - min)
+const randint = (min, max) => Math.floor(rand(min, max + 1))
+const chance = (p) => Math.random() < p
+
+// ── Ordem do turno: a Velocidade decide ─────────────────────────────────────
+//
+// Idêntico ao motor do servidor (`engine.ts`), de propósito: o treino existe
+// para preparar para o PvP. Quem tem a Velocidade efetiva maior (base, IV e
+// estágios de buff/debuff) age primeiro; empate exato é cara ou coroa — e não
+// "empate vai para o jogador", que dava iniciativa permanente contra o bot sem
+// IVs. Ver o porquê da troca da moeda pesada em `engine.ts`.
+export function turnOrder(state, playerMove, enemyMove) {
+  const playerFirst = chance(playerFirstChance(state))
+  const p = { key: 'player', move: playerMove }
+  const e = { key: 'enemy', move: enemyMove }
+  return playerFirst ? [p, e] : [e, p]
+}
+
+/** A probabilidade de o `player` abrir o turno: 1, 0 ou ½ no empate. */
+export function playerFirstChance(state) {
+  const ps = effectiveStat(state.player, STAT.RACIOCINIO)
+  const es = effectiveStat(state.enemy, STAT.RACIOCINIO)
+  if (ps === es) return 0.5
+  return ps > es ? 1 : 0
+}
+
+// ── Upkeep: início do turno de um combatente ─────────────────────────────────
+// Aplica dano-por-turno, buffs por-turno, expira temporizados e resolve
+// paralisia/confusão. Retorna { events, canAct }.
+export function upkeep(state, key) {
+  const c = state[key]
+  const events = []
+  c.hpAtTurnStart = c.hp
+
+  // Regen (buffs que sobem a cada turno). Cada tique entra também como buff
+  // TEMPORIZADO para poder decair — ver GROW_TICK_TURNS.
+  for (const r of c.regen) {
+    c.stages[r.stat] = clampStage(c.stages[r.stat] + r.delta)
+    c.timedBuffs.push({ stat: r.stat, delta: r.delta, turns: GROW_TICK_TURNS })
+    r.turns -= 1
+  }
+  c.regen = c.regen.filter((r) => r.turns > 0)
+
+  // Expira buffs temporizados (reverte o efeito)
+  for (const b of c.timedBuffs) {
+    b.turns -= 1
+    if (b.turns <= 0) c.stages[b.stat] = clampStage(c.stages[b.stat] - b.delta)
+  }
+  c.timedBuffs = c.timedBuffs.filter((b) => b.turns > 0)
+
+  // Escudos e imunidade a debuff expiram.
+  //
+  // `turns` do escudo era gravado e nunca decrementado: durava a partida
+  // inteira até ser consumido por um golpe. No modo `reflect` isso virava
+  // imunidade permanente COM contra-ataque — o "reflete invencível".
+  for (const s of c.shields) s.turns -= 1
+  c.shields = c.shields.filter((s) => s.turns > 0)
+  if (c.debuffImmuneTurns > 0) c.debuffImmuneTurns -= 1
+
+  // Dano por turno (queimadura)
+  if (c.status && c.status.kind === STATUS.QUEIMADURA) {
+    const dmg = c.status.power ?? DOT_DEFAULT_POWER
+    c.hp = Math.max(0, c.hp - dmg)
+    events.push({ type: 'message', text: `${c.name} sofre com o efeito contínuo!` })
+    events.push({ type: 'damage', target: key, amount: dmg })
+    c.status.turns -= 1
+    if (c.status.turns <= 0) {
+      c.status = null
+      events.push({ type: 'message', text: `${c.name} se livrou do efeito.` })
+    }
+    if (c.hp <= 0) {
+      events.push({ type: 'faint', target: key })
+      return { events, canAct: false }
+    }
+  }
+
+  // Paralisia: chance de perder o turno
+  if (c.status && c.status.kind === STATUS.PARALISIA) {
+    c.status.turns -= 1
+    if (c.status.turns <= 0) c.status = null
+    if (chance(PARALYSIS_SKIP_CHANCE)) {
+      events.push({ type: 'message', text: `${c.name} está travado e não conseguiu agir!` })
+      return { events, canAct: false }
+    }
+  }
+
+  // Confusão: chance de se atingir
+  if (c.status && c.status.kind === STATUS.CONFUSAO) {
+    c.status.turns -= 1
+    if (c.status.turns <= 0) {
+      c.status = null
+      events.push({ type: 'message', text: `${c.name} recobrou o juízo.` })
+    } else if (chance(CONFUSION_SELF_HIT_CHANCE)) {
+      const dmg = Math.max(1, Math.round(c.maxHp * CONFUSION_SELF_HIT_FRACTION))
+      c.hp = Math.max(0, c.hp - dmg)
+      events.push({ type: 'message', text: `${c.name} está confuso e se atingiu!` })
+      events.push({ type: 'damage', target: key, amount: dmg })
+      if (c.hp <= 0) events.push({ type: 'faint', target: key })
+      return { events, canAct: false }
+    }
+  }
+
+  return { events, canAct: true }
+}
+
+// Resolve poder/precisão efetivos considerando grow / accuracyGain / usos.
+function effectiveAttack(attacker, move) {
+  const uses = attacker.usage[move.id] || 0
+  let power = move.power ?? 0
+  let accuracy = move.accuracy ?? 1
+  for (const e of move.effects) {
+    if (e.kind === EFFECT.GROW) power += e.inc * uses
+    if (e.kind === EFFECT.ACCURACY_GAIN) accuracy = Math.min(1, accuracy + e.inc * uses)
+  }
+  return { power, accuracy }
+}
+
+/**
+ * Condição do `comboBonus`: o DEFENSOR está debilitado.
+ *
+ * A checagem anterior era "existe qualquer efeito no campo", dos dois lados — e
+ * contava estágio positivo, escudo e buff do próprio atacante. Como estágio de
+ * stat não expirava, bastava um buff no turno 1 para os quatro golpes de combo
+ * ficarem em ×1,5 pelo resto da partida: a condição nunca voltava a ser falsa.
+ */
+function defenderIsAfflicted(defender) {
+  return Boolean(defender.status) || Object.values(defender.stages).some((s) => s < 0)
+}
+
+// Aplica dano ao defensor considerando escudos. Retorna { dealt, reflected, note }.
+function applyDamageWithShields(defender, rawDamage) {
+  let dealt = rawDamage
+  let reflected = 0
+  let note = null
+
+  if (defender.shields.length) {
+    // consome o escudo mais recente aplicável
+    const idx = defender.shields.length - 1
+    const s = defender.shields[idx]
+    if (s.mode === 'evade') {
+      defender.shields.splice(idx, 1)
+      return { dealt: 0, reflected: 0, note: 'esquivou' }
+    }
+    if (s.mode === 'block') {
+      defender.shields.splice(idx, 1)
+      return { dealt: 0, reflected: 0, note: 'bloqueou' }
+    }
+    if (s.mode === 'reflect') {
+      // Refletir DIVIDE o golpe, não o anula: `amount` volta para o atacante e
+      // o resto ainda entra. Antes o defensor tomava zero E contra-atacava.
+      defender.shields.splice(idx, 1)
+      reflected = Math.round(rawDamage * s.amount)
+      dealt = Math.max(0, rawDamage - reflected)
+      note = 'refletiu'
+    }
+    if (s.mode === 'reduce') {
+      defender.shields.splice(idx, 1)
+      dealt = Math.round(rawDamage * (1 - s.amount))
+      note = 'reduziu'
+    }
+  }
+
+  defender.hp = Math.max(0, defender.hp - dealt)
+  return { dealt, reflected, note }
+}
+
+function changeStage(target, targetKey, stat, delta, turns, events) {
+  if (delta < 0 && target.debuffImmuneTurns > 0) {
+    events.push({ type: 'message', text: `${target.name} está protegido de debuffs!` })
+    return
+  }
+  target.stages[stat] = clampStage(target.stages[stat] + delta)
+  if (turns > 0) target.timedBuffs.push({ stat, delta, turns })
+  const up = delta > 0
+  const statName = STAT_LABEL[stat] || stat
+  events.push({
+    type: 'message',
+    text: `${target.name}: ${up ? '▲' : '▼'} ${statName} ${up ? 'subiu' : 'caiu'}!`,
+  })
+}
+
+// ── Executa um golpe. Muta o estado e devolve a lista de eventos ─────────────
+export function performMove(state, atkKey, move) {
+  const events = []
+  const attacker = state[atkKey]
+  // Nada de `defKey` aqui: havia uma cópia morta desde antes, duplicando a que
+  // vive em `resolveAttack`, que é onde o defensor importa. O motor do back
+  // (`engine.ts`) nunca teve a linha.
+
+  attacker.usage[move.id] = (attacker.usage[move.id] || 0) + 1
+  events.push({ type: 'message', text: `${attacker.name} usou ${move.name}!` })
+
+  // repeatLast: repete o último ataque com bônus
+  const repeat = move.effects.find((e) => e.kind === EFFECT.REPEAT_LAST)
+  if (repeat) {
+    const last = attacker.lastAttackId && getMoveById(attacker.lastAttackId)
+    if (!last) {
+      events.push({ type: 'message', text: 'Mas não havia golpe para repetir…' })
+      return events
+    }
+    const boosted = { ...last, power: Math.round((last.power ?? 0) * repeat.mult), effects: last.effects.filter((e) => e.kind !== EFFECT.REPEAT_LAST) }
+    events.push(...performMove(state, atkKey, boosted))
+    return events
+  }
+
+  const isAttack = move.category === CATEGORY.ATAQUE && (move.power ?? 0) > 0
+
+  if (isAttack) {
+    attacker.lastAttackId = move.id
+    resolveAttack(state, atkKey, move, events)
+  } else {
+    resolveUtility(state, atkKey, move, events)
+  }
+
+  return events
+}
+
+function resolveAttack(state, atkKey, move, events) {
+  const attacker = state[atkKey]
+  const defKey = atkKey === 'player' ? 'enemy' : 'player'
+  const defender = state[defKey]
+
+  const { power, accuracy } = effectiveAttack(attacker, move)
+
+  // Precisão: forceMiss do atacante + esquiva por raciocínio do defensor
+  if (attacker.forceMiss) {
+    attacker.forceMiss = false
+    events.push({ type: 'message', text: 'O golpe saiu pela culatra e errou!' })
+    return
+  }
+  const evasion = Math.max(
+    0,
+    (defender.stages.raciocinio - attacker.stages.raciocinio) * EVASION_PER_STAGE,
+  )
+  const hitChance = Math.max(MIN_HIT_CHANCE, Math.min(1, accuracy - evasion))
+  if (!chance(hitChance)) {
+    events.push({ type: 'message', text: `${attacker.name} errou o ataque!` })
+    return
+  }
+
+  // Efetividade combinada contra os (1–2) tipos do defensor + STAB.
+  const eff = typeMultiplier(move.type, defender.types)
+  const stab = attacker.types.includes(move.type) ? STAB : 1
+  const atkMult = effectiveStat(attacker, STAT.RIGOR)
+  const ignoreDef = move.effects.some((e) => e.kind === EFFECT.IGNORE_DEFENSE)
+  const defMult = ignoreDef ? 1 : effectiveStat(defender, STAT.DIDATICA)
+
+  let bonus = stab
+  const combo = move.effects.find((e) => e.kind === EFFECT.COMBO_BONUS)
+  if (combo && defenderIsAfflicted(defender)) bonus *= combo.mult
+
+  // `weakPoint` entra na efetividade COM teto (ver WEAK_POINT_CAP). `eff` segue
+  // cru porque é ele que decide a mensagem de super/pouco eficaz.
+  const weak = move.effects.find((e) => e.kind === EFFECT.WEAK_POINT)
+  const effForDamage = weak && eff > 1 ? Math.min(WEAK_POINT_CAP, eff * weak.mult) : eff
+
+  // Quantidade de golpes (multi-hit)
+  let hits = 1
+  const mh = move.effects.find((e) => e.kind === EFFECT.MULTI_HIT)
+  const mhf = move.effects.find((e) => e.kind === EFFECT.MULTI_HIT_FIXED)
+  if (mh) hits = randint(mh.min, mh.max)
+  else if (mhf) hits = mhf.hits
+
+  let totalDealt = 0
+  let reflectedTotal = 0
+  for (let i = 0; i < hits; i++) {
+    if (defender.hp <= 0) break
+    const variance = rand(VARIANCE_MIN, 1)
+    const raw = Math.max(
+      1,
+      Math.round(power * DAMAGE_SCALE * atkMult / defMult * effForDamage * bonus * variance),
+    )
+    const { dealt, reflected, note } = applyDamageWithShields(defender, raw)
+    totalDealt += dealt
+    reflectedTotal += reflected
+    if (dealt > 0) events.push({ type: 'damage', target: defKey, amount: dealt })
+    else if (note) events.push({ type: 'message', text: `${defender.name} ${note} o golpe!` })
+  }
+
+  // Mensagem de efetividade (produto pode dar 4× / 2× / 1× / 0,5× / 0,25×)
+  if (totalDealt > 0) {
+    if (eff > 1) events.push({ type: 'effectiveness', level: eff >= 4 ? 'super4' : 'super' })
+    else if (eff < 1) events.push({ type: 'effectiveness', level: eff <= 0.25 ? 'weak4' : 'weak' })
+    if (hits > 1) events.push({ type: 'message', text: `Acertou ${hits} vezes!` })
+  }
+
+  // Reflexão: devolve dano ao atacante
+  if (reflectedTotal > 0) {
+    attacker.hp = Math.max(0, attacker.hp - reflectedTotal)
+    events.push({ type: 'message', text: 'O golpe foi refletido!' })
+    events.push({ type: 'damage', target: atkKey, amount: reflectedTotal })
+  }
+
+  if (defender.hp <= 0) {
+    events.push({ type: 'faint', target: defKey })
+    return
+  }
+
+  // Efeitos secundários no defensor (chance)
+  for (const e of move.effects) {
+    if (e.kind === EFFECT.PARALYZE && chance(e.chance)) applyStatus(defender, defKey, STATUS.PARALISIA, events)
+    if (e.kind === EFFECT.CONFUSE && chance(e.chance)) applyStatus(defender, defKey, STATUS.CONFUSAO, events)
+    if (e.kind === EFFECT.DOT && chance(e.chance)) applyStatus(defender, defKey, STATUS.QUEIMADURA, events, e.power, e.turns)
+  }
+
+  // Recuo no atacante
+  const rec = move.effects.find((e) => e.kind === EFFECT.RECOIL)
+  if (rec && totalDealt > 0) {
+    const self = Math.max(1, Math.round(totalDealt * rec.fraction))
+    attacker.hp = Math.max(0, attacker.hp - self)
+    events.push({ type: 'message', text: `${attacker.name} sofre o recuo!` })
+    events.push({ type: 'damage', target: atkKey, amount: self })
+    if (attacker.hp <= 0) events.push({ type: 'faint', target: atkKey })
+  }
+}
+
+function applyStatus(target, targetKey, kind, events, power = DOT_DEFAULT_POWER, turns = DOT_DEFAULT_TURNS) {
+  // Um status de cada vez. Antes a recusa era silenciosa: o golpe gastava o
+  // turno e a UI não dizia por quê.
+  if (target.status) {
+    events.push({ type: 'message', text: `${target.name} já está sob outro efeito!` })
+    return
+  }
+  target.status = { kind, turns, power }
+  const verb = {
+    paralisia: 'foi travado',
+    confusao: 'ficou confuso',
+    queimadura: 'começou a sofrer dano contínuo',
+  }[kind]
+  events.push({ type: 'message', text: `${target.name} ${verb}!` })
+  events.push({ type: 'status', target: targetKey })
+}
+
+function resolveUtility(state, atkKey, move, events) {
+  const self = state[atkKey]
+  const foeKey = atkKey === 'player' ? 'enemy' : 'player'
+  const foe = state[foeKey]
+
+  // Golpes que aplicam condição (categoria STATUS) passam pela precisão.
+  //
+  // Os cinco golpes de `CATEGORY.STATUS` têm `power: null` e por isso caem
+  // aqui, não em `resolveAttack` — e este switch não tinha caso para
+  // PARALYZE/CONFUSE/DOT, então os cinco eram NO-OP silencioso: gastavam o
+  // turno, imprimiam "usou X!" e não faziam nada, enquanto a tooltip do
+  // MoveButton prometia "Pode travar (100%)". Paralisia, confusão e dano
+  // contínuo só existiam como efeito colateral de um ataque que acertou.
+  //
+  // A rolagem de precisão é o preço: são os únicos golpes que mexem no
+  // adversário sem tirar dano, e sem ela seriam controle garantido.
+  const aplicaStatus = move.effects.some(
+    (e) => e.kind === EFFECT.PARALYZE || e.kind === EFFECT.CONFUSE || e.kind === EFFECT.DOT,
+  )
+  if (aplicaStatus && !chance(move.accuracy ?? 1)) {
+    events.push({ type: 'message', text: `${self.name} errou o golpe!` })
+    return
+  }
+
+  for (const e of move.effects) {
+    switch (e.kind) {
+      case EFFECT.PARALYZE: {
+        if (chance(e.chance ?? 1)) applyStatus(foe, foeKey, STATUS.PARALISIA, events)
+        break
+      }
+      case EFFECT.CONFUSE: {
+        if (chance(e.chance ?? 1)) applyStatus(foe, foeKey, STATUS.CONFUSAO, events)
+        break
+      }
+      case EFFECT.DOT: {
+        if (chance(e.chance ?? 1)) applyStatus(foe, foeKey, STATUS.QUEIMADURA, events, e.power, e.turns)
+        break
+      }
+      case EFFECT.STAT_CHANGE: {
+        if (e.target === 'self') changeStage(self, atkKey, e.stat, e.delta, e.turns, events)
+        else changeStage(foe, foeKey, e.stat, e.delta, e.turns, events)
+        break
+      }
+      case EFFECT.STAT_GROW_PER_TURN: {
+        self.regen.push({ stat: e.stat, delta: e.delta, turns: e.turns })
+        events.push({ type: 'message', text: `${self.name} vai ficar mais forte a cada turno!` })
+        break
+      }
+      case EFFECT.HEAL: {
+        const amount = Math.min(self.maxHp - self.hp, Math.round(self.maxHp * e.fraction))
+        self.hp += amount
+        events.push({ type: 'message', text: amount > 0 ? `${self.name} recuperou vida!` : `${self.name} já está no máximo.` })
+        if (amount > 0) events.push({ type: 'heal', target: atkKey, amount })
+        break
+      }
+      case EFFECT.CLEANSE: {
+        if (self.status) {
+          self.status = null
+          events.push({ type: 'message', text: `${self.name} limpou seus efeitos negativos.` })
+        }
+        break
+      }
+      case EFFECT.RESET_DEBUFFS: {
+        for (const stat of Object.keys(self.stages)) {
+          if (self.stages[stat] < 0) self.stages[stat] = 0
+        }
+        self.status = null
+        events.push({ type: 'message', text: `${self.name} reajustou seus atributos.` })
+        break
+      }
+      case EFFECT.SHIELD: {
+        self.shields.push({ mode: e.mode, amount: e.amount, turns: e.turns })
+        const label = { block: 'vai bloquear', reduce: 'vai reduzir', reflect: 'vai refletir', evade: 'vai esquivar' }[e.mode]
+        events.push({ type: 'message', text: `${self.name} ${label} o próximo golpe!` })
+        break
+      }
+      case EFFECT.DEBUFF_IMMUNE: {
+        self.debuffImmuneTurns = e.turns
+        events.push({ type: 'message', text: `${self.name} está imune a debuffs por ${e.turns} turnos!` })
+        break
+      }
+      case EFFECT.FORCE_MISS: {
+        foe.forceMiss = true
+        events.push({ type: 'message', text: `${foe.name} vai errar o próximo ataque!` })
+        break
+      }
+      case EFFECT.UNDO_DAMAGE: {
+        const restored = Math.min(self.maxHp, self.hpAtTurnStart) - self.hp
+        if (restored > 0) {
+          self.hp += restored
+          events.push({ type: 'message', text: `${self.name} desfez o dano do último turno!` })
+          events.push({ type: 'heal', target: atkKey, amount: restored })
+        } else {
+          events.push({ type: 'message', text: 'Não havia dano para desfazer.' })
+        }
+        break
+      }
+      default:
+        break
+    }
+  }
+}
+
+// ── IA do inimigo ────────────────────────────────────────────────────────────
+// Heurística leve: cura se estiver muito ferido; senão prioriza um ataque
+// super-eficaz; senão um ataque qualquer; utilitário de vez em quando.
+export function chooseEnemyMove(state) {
+  const enemy = state.enemy
+  const player = state.player
+  const pool = enemy.moves
+
+  const attacks = pool.filter((m) => m.category === CATEGORY.ATAQUE && (m.power ?? 0) > 0)
+  const heals = pool.filter((m) => m.effects.some((e) => e.kind === EFFECT.HEAL))
+  const utils = pool.filter((m) => m.category !== CATEGORY.ATAQUE)
+
+  if (enemy.hp < enemy.maxHp * 0.3 && heals.length && chance(0.6)) {
+    return pick(heals)
+  }
+
+  const superAtk = attacks.filter((m) => typeMultiplier(m.type, player.types) > 1)
+  if (superAtk.length && chance(0.75)) return pick(superAtk)
+
+  if (utils.length && chance(0.25)) return pick(utils)
+
+  return attacks.length ? pick(attacks) : pick(pool)
+}
+
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)]
+}

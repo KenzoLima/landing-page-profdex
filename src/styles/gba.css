@@ -65,17 +65,21 @@
   text-shadow: 2px 2px 0 var(--surface);
   letter-spacing: 1px;
   text-align: center;
-  transition: transform var(--dur-fast) ease;
+  transition: transform var(--dur-fast) steps(2, end);
 }
 
 .btn-pixel:hover {
   text-decoration: none;
   background: #a85b00;
+  /* Sobe um pixel inteiro no hover e afunda no clique: o botão tem as duas
+     metades do gesto físico, e as duas em `steps()` — um botão de console não
+     desliza, ele muda de quadro. */
+  transform: translate(-1px, -1px);
 }
 
 /* O "afundar" no clique — o feedback que faz o botão parecer físico. */
 .btn-pixel:active {
-  transform: scale(0.98);
+  transform: translate(1px, 1px) scale(0.98);
   box-shadow:
     inset 3px 3px 0 var(--surface-border),
     inset -3px -3px 0 var(--ds-orange-shadow);
@@ -102,6 +106,7 @@
     transition: none;
   }
 
+  .btn-pixel:hover,
   .btn-pixel:active {
     transform: none;
   }
@@ -126,4 +131,43 @@
   font-size: var(--fs-h2);
   color: var(--text-primary);
   text-shadow: 3px 3px 0 var(--surface);
+}
+
+/* Fio dourado sob cada título, desenhado da esquerda quando a seção entra.
+ *
+ * Ele existe por ritmo: sete seções empilhadas precisavam de uma marca de
+ * "começa aqui" mais forte que o espaço em branco, e o vocabulário da casa já
+ * tem o fio dourado (o molde GBA, o bisel da Pokédex). Cresce em `steps()`,
+ * como as barras de HP e as da tabela de pontos.
+ *
+ * A largura padrão é a FINAL: se o JS do reveal nunca rodar, o atributo não
+ * aparece, o seletor não casa e o fio fica desenhado — mesmo modo de falha do
+ * resto do reveal. */
+.section-title::after {
+  content: '';
+  display: block;
+  width: 64px;
+  height: 3px;
+  margin-top: var(--space-2);
+  background: var(--unifil-gold);
+  transform-origin: left center;
+}
+
+[data-reveal='pending'] .section-title::after {
+  transform: scaleX(0);
+}
+
+[data-reveal='shown'] .section-title::after {
+  transform: scaleX(1);
+  transition: transform var(--dur-slow) var(--ease-pixel);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal='pending'] .section-title::after {
+    transform: none;
+  }
+
+  [data-reveal='shown'] .section-title::after {
+    transition: none;
+  }
 }

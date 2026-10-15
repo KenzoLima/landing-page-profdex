@@ -38,11 +38,18 @@ const headingId = useId()
   flex-direction: column;
   gap: var(--space-2);
   margin-bottom: var(--space-5);
+}
+
+.section-title {
+  /* Só o título respeita a largura de leitura confortável — em pixel, uma
+     frase de título curta não precisa disso, mas evita que um título raro e
+     comprido vire uma parede de uma linha só. */
   max-width: var(--maxw-prose);
 }
 
 .section-lede {
-  margin-top: var(--space-2);
+  /* Sem margem própria: o `gap` do .section-head já é o respiro entre título e
+     lede, e somar os dois deixava esta linha fora da escala de 8. */
   color: var(--text-muted);
   font-size: var(--fs-body);
 }

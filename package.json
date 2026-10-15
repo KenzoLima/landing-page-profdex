@@ -1,13 +1,14 @@
 {
   "name": "landin-page-profdex",
   "version": "1.0.0",
-  "description": "Landing page do ProfDex — Semana Tecnológica da UniFil",
+  "description": "Landing page do ProfDex — TechFil, UniFil",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "prebuild": "npm run check:assets",
     "build": "vite build",
+    "build:vercel": "npm run check:assets && VITE_BASE=/ vite build",
     "preview": "vite preview",
     "check:assets": "node scripts/check-asset-budget.mjs",
     "assets:optimize": "node scripts/optimize-assets.mjs",

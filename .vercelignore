@@ -1,0 +1,5 @@
+# O node_modules versionado foi instalado no Windows; a Vercel builda em Linux
+# e precisa instalar as próprias dependências.
+node_modules
+dist
+assets-src

@@ -36,7 +36,14 @@ const style = computed(() => ({
   font-family: var(--font-pixel);
   font-size: 9px;
   line-height: 1.4;
-  white-space: nowrap;
+  /* Quebra linha em vez de vazar: "Engenharia de Software" não cabe inteira
+     num card de Pokédex de ~160 px no celular. O ícone nunca encolhe. */
+  max-width: 100%;
+  white-space: normal;
+}
+
+.type-badge :deep(svg) {
+  flex-shrink: 0;
 }
 
 .type-badge--md {

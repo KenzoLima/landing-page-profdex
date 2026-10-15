@@ -1,20 +1,22 @@
 <script setup>
 import { hero } from '@/content/copy.js'
-import { APP_LOGIN_URL } from '@/config/links.js'
 import PixelButton from '@/components/PixelButton.vue'
+import { asset } from '@/config/asset.js'
 </script>
 
 <template>
-  <header class="hero">
+  <!-- <section>, não <header>: a barra fixa já é o banner da página, e dois
+       landmarks "banner" confundem quem navega por regiões no leitor de tela. -->
+  <section id="topo" class="hero" aria-labelledby="hero-title">
     <div class="hero__inner container">
       <div class="hero__art">
         <!-- Esta imagem é o LCP da página, então NÃO é lazy e NÃO é async:
              ela precisa estar na primeira leva. 6,4 KB depois da quantização
              para paleta indexada (era 205 KB — ver
              scripts/make-placeholder-assets.mjs). -->
-        <img
+        <img draggable="false"
           class="hero__ball pixelated"
-          src="/eagle-ball.png"
+          :src="asset('/eagle-ball.png')"
           alt="Logo do ProfDex: uma águia em pixel art dentro de uma bola de captura"
           width="500"
           height="500"
@@ -25,19 +27,19 @@ import PixelButton from '@/components/PixelButton.vue'
 
       <div class="hero__text">
         <p class="hero__context">{{ hero.context }}</p>
-        <h1 class="hero__title">
+        <h1 id="hero-title" class="hero__title">
           {{ hero.wordmarkStart }}<span class="hero__title-accent">{{ hero.wordmarkEnd }}</span>
         </h1>
         <p class="hero__subtitle">{{ hero.subtitle }}</p>
         <p class="hero__lede">{{ hero.lede }}</p>
 
         <div class="hero__cta">
-          <PixelButton :href="APP_LOGIN_URL" external>{{ hero.cta }}</PixelButton>
-          <p class="hero__cta-hint">{{ hero.ctaHint }}</p>
+          <PixelButton href="#video">{{ hero.cta }}</PixelButton>
+          <a class="hero__link" href="#creditos">{{ hero.ctaSecondary }}</a>
         </div>
       </div>
     </div>
-  </header>
+  </section>
 </template>
 
 <style scoped>
@@ -50,7 +52,11 @@ import PixelButton from '@/components/PixelButton.vue'
      do aparelho. Dois pixels — o suficiente para o corte parecer fabricado em
      vez de cortado com `border-bottom`. */
   box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--unifil-gold) 45%, transparent);
-  padding-block: var(--space-5) var(--space-6);
+  /* O topo reserva a altura da barra fixa: ela flutua por cima do hero, e
+     sem esta soma o "TechFil 2026 · UniFil" nasceria escondido
+     atrás dela. Reservado em CSS, então vale já no primeiro paint — o CLS
+     continua 0. */
+  padding-block: calc(var(--nav-h) + env(safe-area-inset-top, 0px) + var(--space-5)) var(--space-6);
   position: relative;
   overflow: hidden;
 }
@@ -119,6 +125,21 @@ import PixelButton from '@/components/PixelButton.vue'
     96px 96px,
     160px 160px,
     auto;
+  /* Microvida: a placa desliza um tile inteiro (192px) em 8 quadros, uma vez a
+     cada 24 segundos. É `steps(8)`, então são OITO repinturas por ciclo — não
+     240 por segundo — e a diferença entre um quadro e o outro é pequena demais
+     para desviar o olho do título. Não custa contraste: a textura é a mesma,
+     só deslocada, e o par escuro que fica sob cada glifo continua o mesmo. */
+  animation: board-drift 24s steps(8, end) infinite;
+}
+
+@keyframes board-drift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 192px 192px;
+  }
 }
 
 .hero__inner {
@@ -172,6 +193,20 @@ import PixelButton from '@/components/PixelButton.vue'
    trata ≥24px como texto grande) e onde ele é a assinatura da marca. */
 .hero__title-accent {
   color: var(--unifil-gold);
+  /* Entrada de "ligar o aparelho": o DEX encaixa no PROF em três quadros.
+     TRANSFORM APENAS — nada de fade. O LCP da página é o texto do hero, e
+     animar opacidade aqui empurraria a marca de LCP para o fim da animação. */
+  display: inline-block;
+  animation: dex-snap 360ms steps(3, end) 1 both;
+}
+
+@keyframes dex-snap {
+  from {
+    transform: translateX(6px);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
 .hero__subtitle {
@@ -182,7 +217,6 @@ import PixelButton from '@/components/PixelButton.vue'
 }
 
 .hero__lede {
-  max-width: 46ch;
   margin-inline: auto;
   margin-top: var(--space-3);
   color: var(--text-primary);
@@ -193,15 +227,34 @@ import PixelButton from '@/components/PixelButton.vue'
 .hero__cta {
   margin-top: var(--space-4);
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  justify-content: center;
+  gap: var(--space-3) var(--space-4);
 }
 
-.hero__cta-hint {
-  font-size: var(--fs-body-sm);
+/* Destino secundário: link de texto, não um segundo botão. Branco sobre o
+   laranja (5,6:1) — o dourado não passa em texto pequeno aqui. */
+.hero__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: var(--space-2);
+  font-family: var(--font-pixel);
+  font-size: var(--fs-pixel-sm);
   color: var(--text-primary);
-  opacity: 0.85;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 2px;
+}
+
+.hero__link:hover {
+  color: var(--text-primary);
+  text-decoration-color: var(--unifil-gold);
+}
+
+.hero__link:focus-visible {
+  outline-color: var(--text-primary);
 }
 
 /* O botão do hero fica sobre o laranja, então inverte: fundo escuro para não
@@ -217,11 +270,16 @@ import PixelButton from '@/components/PixelButton.vue'
 
 @media (min-width: 860px) {
   .hero {
-    padding-block: var(--space-6) var(--space-7);
+    padding-block: calc(var(--nav-h) + env(safe-area-inset-top, 0px) + var(--space-6)) var(--space-7);
   }
 
   .hero__inner {
     flex-direction: row;
+    /* Preenche a largura do container em vez de empacotar as duas peças à
+       esquerda: sem isto, alargar `--maxw-content` só cria uma faixa vazia
+       nova à direita do texto — o mesmo desperdício de fora do container,
+       só que dentro dele. */
+    justify-content: space-between;
     text-align: left;
     gap: var(--space-6);
   }
@@ -230,17 +288,38 @@ import PixelButton from '@/components/PixelButton.vue'
     width: clamp(176px, 20vw, 240px);
   }
 
+  .hero__text {
+    /* Cresce para preencher o espaço que sobra ao lado da bola, em vez de um
+       teto fixo em px: era ele que deixava vão morto entre o fim do texto e
+       a borda direita do hero quando a fonte do corpo mudou de largura. */
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
   .hero__lede {
     margin-inline: 0;
   }
 
   .hero__cta {
-    align-items: flex-start;
+    justify-content: flex-start;
+  }
+}
+
+/* Acima de 1400px o `--maxw-content` fluido (ver tokens.css) já entregou
+ * espaço extra ao hero; sem crescer a bola junto, esse espaço vira só um
+ * `gap` maior entre as duas metades. A bola cresce com a tela para continuar
+ * lendo como a peça de mesmo peso visual que o título, e não um selo
+ * encolhendo num canto. */
+@media (min-width: 1400px) {
+  .hero__ball {
+    width: clamp(240px, 16vw, 320px);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero__ball {
+  .hero__ball,
+  .hero::before,
+  .hero__title-accent {
     animation: none;
   }
 }

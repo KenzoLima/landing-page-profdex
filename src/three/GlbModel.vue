@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted, shallowRef } from 'vue'
 import { Box3, Vector3 } from 'three'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { asset } from '@/config/asset.js'
 import { disposeObject3D } from '@/three/disposeObject3D.js'
 
 // Carrega o .glb e — mais importante que carregar — devolve a memória depois.
@@ -60,7 +61,7 @@ onMounted(() => {
   // instalado — versão casada com este GLTFLoader. O padrão da lib aponta para
   // o CDN do Google: um terceiro no caminho crítico é um ponto de falha a mais
   // no Wi-Fi de um evento.
-  dracoLoader.setDecoderPath('/draco/')
+  dracoLoader.setDecoderPath(asset('/draco/'))
 
   gltfLoader = new GLTFLoader()
   gltfLoader.setDRACOLoader(dracoLoader)

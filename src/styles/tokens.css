@@ -35,9 +35,10 @@
 
   /* ── Tipografia ───────────────────────────────────────────────────────── */
   --font-pixel: 'Press Start 2P', 'Courier New', monospace;
-  /* A pilha do sistema fica de fallback: se o .woff2 não chegar, o texto
-   * continua sóbrio e legível em vez de cair num serifado qualquer. */
-  --font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Todo o site em pixel, por pedido explícito — inclusive texto corrido.
+   * A pilha do sistema fica de fallback: se o .woff2 não chegar, o texto cai
+   * num monoespaçado sóbrio em vez de um serifado qualquer. */
+  --font-body: 'Press Start 2P', 'Courier New', monospace;
 
   /* Escala fluida. O app fixa 22/11/9px porque vive numa tela de 480px; aqui a
    * página vai de 320px a 1920px, então a regra é manter a PROPORÇÃO
@@ -60,7 +61,23 @@
   --space-7: 96px;
 
   /* ── Layout ───────────────────────────────────────────────────────────── */
-  --maxw-content: 1120px;
+  /* Altura da barra fixa do topo. Um valor só para todos os tamanhos, e
+   * de propósito: ele entra em TRÊS lugares que precisam concordar entre si
+   * — o espaço reservado no topo do hero, o `scroll-padding-top` das
+   * âncoras e o `rootMargin` do observador que troca o estilo da barra
+   * (src/composables/useScrollSpy.js). Variar por breakpoint criaria uma
+   * quarta cópia do número dentro do JS, que não reage a media query. */
+  --nav-h: 60px;
+
+  /* Fluido a partir de 1120px: em telas até ~1470px o valor não muda (o `1120px`
+   * mínimo do clamp domina), então nenhuma seção abaixo desse ponto se
+   * reposiciona. Acima disso o conteúdo cresce com a tela — 76vw — até travar
+   * em 1440px, que é o teto onde `--maxw-prose` (62ch) mais o resto dos
+   * grids ainda respiram sem virar uma faixa de texto absurdamente larga.
+   * Sem isto, um monitor de 1920px sobrava ~400px de moldura vazia de cada
+   * lado — a placa de circuito e a parede de masmorra já são textura, não
+   * cobrem por conteúdo nenhum. */
+  --maxw-content: clamp(1120px, 76vw, 1440px);
   --maxw-prose: 62ch;
 
   /* Raio pequeno é regra da linguagem visual: nada de pílulas arredondadas. */

@@ -1,15 +1,17 @@
 /**
- * Gera os `.glb` de public/models a partir dos modelos do app.
+ * Gera `public/models/<slug>.glb` a partir dos modelos de origem do elenco.
  *
- *   node scripts/optimize-model.mjs            # todos
- *   node scripts/optimize-model.mjs mario      # só um
- *   PROFDEX_FRONT=D:\profdex\main\profdex-front node scripts/optimize-model.mjs
+ *   node scripts/optimize-model.mjs                 # todos
+ *   node scripts/optimize-model.mjs mario tanaka    # só alguns
+ *   PROFDEX_MODELS_DIR="D:\profdex\professores profdex 3D" node scripts/optimize-model.mjs
+ *
+ * A lista (slug → arquivo de origem) é MODEL_ENTRIES, em src/config/model.js.
  *
  * ── Por que este script existe ───────────────────────────────────────────────
  *
- * Os originais em `profdex-front/public/models` pesam 27 MB (Mário), 27 MB
- * (Eron) e 74 MB (Gustavo), e o problema NÃO é o disco: é a GPU. O `inspect`
- * dos três mostra a mesma assinatura — três texturas 4096×4096 por professor:
+ * As formas especiais chegam com ~60 MB e ~1 milhão de vértices; os primeiros
+ * originais do app pesavam 27–74 MB. O problema NÃO é o disco: é a GPU. A
+ * assinatura típica são três texturas 4096×4096 por professor:
  *
  *   baseColor 4096²          → ~89 MB descompactada na GPU
  *   normal 4096²             → ~89 MB
@@ -33,9 +35,9 @@
  *    olha de perto num visualizador que gira a 40 px/s.
  *
  * 2. GEOMETRIA. `weld` funde vértices duplicados — sem isso o `simplify` não
- *    tem o que colapsar. O Gustavo tem 854 mil vértices (26× os outros dois,
- *    provavelmente um scan sem retopologia) e só ele passa pelo `simplify`; nos
- *    demais o custo já é irrelevante e simplificar só tiraria silhueta de graça.
+ *    tem o que colapsar. Só quem passa de SIMPLIFY_THRESHOLD é simplificado
+ *    (na prática, as esculturas de ~1 milhão de vértices); nos demais o custo já
+ *    é irrelevante e simplificar só tiraria silhueta de graça.
  *
  * 3. DRACO por último, porque comprime o que sobrou — rodar antes do simplify
  *    seria comprimir vértices que vão ser jogados fora.
@@ -47,6 +49,8 @@
  */
 import { existsSync } from 'node:fs'
 import { mkdir, stat, writeFile } from 'node:fs/promises'
+import { MODEL_ENTRIES } from '../src/config/model.js'
+import { resolveModelsDir } from './app-source.mjs'
 import path from 'node:path'
 import { NodeIO } from '@gltf-transform/core'
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
@@ -54,9 +58,6 @@ import { dedup, draco, prune, resample, simplify, weld } from '@gltf-transform/f
 import draco3d from 'draco3dgltf'
 import { MeshoptSimplifier } from 'meshoptimizer'
 import sharp from 'sharp'
-
-import { CAPTURABLE } from '../src/data/professors.js'
-import { resolveAppRoot } from './app-source.mjs'
 
 const root = path.resolve(import.meta.dirname, '..')
 const outDir = path.join(root, 'public', 'models')
@@ -81,48 +82,19 @@ const TEXTURE_BUDGET = {
 const SIMPLIFY_THRESHOLD = 100_000
 
 /**
- * Fração de triângulos preservada quando o simplify roda.
+ * Quantos vértices sobram, mais ou menos, depois do simplify.
  *
- * Medido: o Gustavo para em 268.360 vértices (31%), não nos 25% pedidos, e
- * afrouxar o `error` de 0,001 para 0,01 não move o número em um vértice. O
- * limite não é o erro geométrico — é topológico: o meshopt trava vértices de
- * borda e de descontinuidade de UV, e um scan sem retopologia é feito de
- * costura. Mexer nestes dois números não vai adiante; quem quiser o Gustavo
- * mais leve precisa de retopologia no modelo de origem.
+ * Os modelos regulares do elenco têm ~17 mil vértices; as formas especiais
+ * chegam com ~1 milhão (escultura sem retopologia). Uma razão fixa não serve
+ * para os dois casos, então a razão sai deste alvo. O meshopt para antes do
+ * alvo quando bate em costura de UV — o número final é sempre maior que este.
  */
-const SIMPLIFY_RATIO = 0.25
+const SIMPLIFY_TARGET_VERTICES = 60_000
 
 /** Erro máximo aceito pelo simplify, como fração do raio do modelo. */
-const SIMPLIFY_ERROR = 0.001
+const SIMPLIFY_ERROR = 0.01
 
 const mb = (bytes) => (bytes / 1048576).toFixed(2)
-
-/** Onde o tamanho medido de cada modelo é publicado para o app Vue. */
-const manifestPath = path.join(root, 'src', 'config', 'model-sizes.js')
-
-/** Escreve o manifesto de tamanhos que a seção 3D lê. */
-async function writeManifest(entries) {
-  const linhas = entries
-    .sort((a, b) => a.slug.localeCompare(b.slug))
-    .map((e) => `  '${e.slug}': ${(e.bytes / 1048576).toFixed(2)},`)
-    .join('\n')
-
-  const conteudo = `// GERADO POR scripts/optimize-model.mjs — não edite à mão.
-//
-// Tamanho de cada .glb de public/models, em MB, MEDIDO no arquivo publicado. A
-// seção 3D mostra este número antes de baixar qualquer byte, e o
-// scripts/check-asset-budget.mjs quebra o build se ele divergir do disco.
-//
-// Para atualizar: npm run model:optimize
-
-export const MODEL_SIZES_MB = {
-${linhas}
-}
-`
-  await mkdir(path.dirname(manifestPath), { recursive: true })
-  await writeFile(manifestPath, conteudo)
-  console.log(`✓ src/config/model-sizes.js`)
-}
 
 /** Em qual slot do material esta textura está ligada — decide o orçamento. */
 function slotOf(document, texture) {
@@ -191,9 +163,8 @@ async function optimize(slug, sourcePath) {
   // O simplify precisa do WASM do meshoptimizer pronto — daí o `ready`.
   if (vertices > SIMPLIFY_THRESHOLD) {
     await MeshoptSimplifier.ready
-    passes.push(
-      simplify({ simplifier: MeshoptSimplifier, ratio: SIMPLIFY_RATIO, error: SIMPLIFY_ERROR }),
-    )
+    const ratio = SIMPLIFY_TARGET_VERTICES / vertices
+    passes.push(simplify({ simplifier: MeshoptSimplifier, ratio, error: SIMPLIFY_ERROR }))
   }
 
   passes.push(draco())
@@ -201,7 +172,7 @@ async function optimize(slug, sourcePath) {
 
   const glb = await io.writeBinary(document)
   await mkdir(outDir, { recursive: true })
-  const dest = path.join(outDir, `${slug}-hero.glb`)
+  const dest = path.join(outDir, `${slug}.glb`)
   await writeFile(dest, glb)
 
   const sourceSize = (await stat(sourcePath)).size
@@ -220,38 +191,26 @@ async function optimize(slug, sourcePath) {
   return { slug, bytes: glb.byteLength }
 }
 
-// A lista de quem tem modelo sai do `professors.js` — um professor novo com arte
-// é uma linha lá, e este script passa a processá-lo sem ser tocado.
-const appRoot = resolveAppRoot()
+// Quem tem modelo sai de `professors.js` (professores e formas especiais); o
+// nome do arquivo de origem é o único dado que só este script precisa.
+const sourceDir = resolveModelsDir()
 const only = process.argv.slice(2)
-const alvos = CAPTURABLE.filter((p) => p.model && (only.length === 0 || only.includes(p.slug)))
+const alvos = MODEL_ENTRIES.filter((e) => only.length === 0 || only.includes(e.slug))
 
 if (alvos.length === 0) {
-  const conhecidos = CAPTURABLE.filter((p) => p.model).map((p) => p.slug)
+  const conhecidos = MODEL_ENTRIES.map((e) => e.slug)
   throw new Error(`Nenhum modelo casa com "${only.join(', ')}". Conhecidos: ${conhecidos.join(', ')}`)
 }
 
-const gerados = []
-for (const prof of alvos) {
-  // Convenção do app: `public/models/modelo-<slug>.glb`.
-  const sourcePath = path.join(appRoot, 'public', 'models', `modelo-${prof.slug}.glb`)
+let total = 0
+for (const entry of alvos) {
+  const sourcePath = path.join(sourceDir, entry.modelSource)
   if (!existsSync(sourcePath)) {
-    console.warn(`· pulado ${prof.slug}: não achei ${sourcePath}`)
+    console.warn(`· pulado ${entry.slug}: não achei ${sourcePath}`)
     continue
   }
-  const { bytes } = await optimize(prof.slug, sourcePath)
-  gerados.push({ slug: prof.slug, bytes })
+  const { bytes } = await optimize(entry.slug, sourcePath)
+  total += bytes
 }
 
-const total = gerados.reduce((sum, g) => sum + g.bytes, 0)
-console.log(`\nTotal em public/models: ${mb(total)} MB`)
-
-// O tamanho anunciado ao usuário ANTES do download sai daqui, medido, e nunca
-// digitado à mão: a página promete "cerca de X MB" e um número que mente é pior
-// que nenhum número. Só regrava quando a rodada processou todos — rodar
-// `optimize-model.mjs mario` sozinho não pode apagar o tamanho dos outros dois.
-if (only.length === 0) {
-  await writeManifest(gerados)
-} else {
-  console.log('· manifesto não regravado (rodada parcial). Rode sem argumentos para atualizar.')
-}
+console.log(`\nTotal processado: ${mb(total)} MB`)

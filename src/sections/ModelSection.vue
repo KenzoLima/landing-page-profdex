@@ -15,12 +15,19 @@ import { prefersReducedMotionNow } from '@/composables/useMotionPreference.js'
 // TODO aluno — inclusive os que nunca vão tocar no botão.
 const ModelStage = defineAsyncComponent(() => import('@/three/ModelStage.vue'))
 
-// Os três professores com modelo. A regra de "um palco por página" não muda por
-// existirem três arquivos: `useLazyModel` guarda uma trava no escopo do módulo,
-// e trocar de professor DERRUBA o palco anterior antes de montar o próximo —
-// nunca há dois contextos WebGL vivos, que é o que estourou a memória na arena.
+// Todos os modelos do elenco, em dois grupos. A regra de "um palco por página"
+// não muda com a quantidade: `useLazyModel` guarda uma trava no escopo do
+// módulo, e trocar de professor DERRUBA o palco anterior antes de montar o
+// próximo — nunca há dois contextos WebGL vivos, que é o que estourou a memória
+// na arena.
 const escolhido = ref(DEFAULT_MODEL_SLUG)
 const atual = computed(() => MODEL_ENTRIES.find((m) => m.slug === escolhido.value) ?? null)
+
+const grupos = computed(() =>
+  Object.entries(model3d.groups)
+    .map(([key, label]) => ({ key, label, entries: MODEL_ENTRIES.filter((e) => e.group === key) }))
+    .filter((g) => g.entries.length > 0),
+)
 
 const { status, reason, activate, release, markReady, markError } = useLazyModel({
   modelUrl: () => atual.value?.url ?? null,
@@ -37,18 +44,15 @@ const refusalMessage = computed(() =>
     : '',
 )
 
-// Vírgula decimal: a página é em português e este número aparece para o aluno.
-const tamanhoFormatado = computed(() => atual.value?.sizeMb.toLocaleString('pt-BR') ?? '')
-
 /**
  * Cor legível do tipo primário — a mesma regra da roda e das badges.
  *
  * Vai em PRIMEIRO PLANO (borda e ícone do botão), então passa pelo `legibleColor`:
- * a paleta canônica dos tipos foi desenhada para preencher área, e o NPI
- * (`#495057`) sobre o fundo escuro daria 1,7:1.
+ * a paleta canônica dos tipos foi desenhada para preencher área, e a Eng. de
+ * Software (`#495057`) sobre o fundo escuro daria 1,7:1.
  */
 function corDoTipo(types) {
-  const tipo = getType(types[0])
+  const tipo = getType(types?.[0])
   return tipo ? legibleColor(tipo.color) : 'var(--unifil-gold)'
 }
 
@@ -60,7 +64,7 @@ function corDoTipo(types) {
  * da do card da Pokédex, que usa a cor crua.
  */
 function corPlacaDoTipo(types) {
-  return getType(types[0])?.color ?? 'var(--surface-border)'
+  return getType(types?.[0])?.color ?? 'var(--surface-border)'
 }
 
 // Com movimento reduzido o modelo carrega, mas fica parado: quem pediu menos
@@ -94,7 +98,17 @@ async function escolher(slug) {
   }
 }
 
+/** "VER EM 3D" na ficha do simulador: escolhe o professor e rola até aqui. */
+function onVer3d(event) {
+  if (!MODEL_ENTRIES.some((m) => m.slug === event.detail)) return
+  escolher(event.detail)
+  sectionEl.value?.scrollIntoView({ block: 'start' })
+}
+
+onBeforeUnmount(() => window.removeEventListener('profdex:ver-3d', onVer3d))
+
 onMounted(() => {
+  window.addEventListener('profdex:ver-3d', onVer3d)
   if (typeof IntersectionObserver === 'undefined' || !sectionEl.value) return
 
   // Rolou para longe com o 3D aberto? Desmonta. O contexto WebGL e a geometria
@@ -125,52 +139,66 @@ watch(status, (value) => {
     <template #lede>{{ model3d.desc }}</template>
 
     <div ref="sectionEl" class="model gba-frame">
-      <!-- Seletor de professor. Cada botão traz o ícone do TIPO na cor do tipo:
-           é a mesma chave visual das badges e da roda, então quem já rolou até
-           aqui reconhece "o de Algoritmos" sem ler o nome. O peso fica no botão
-           de propósito — a escolha entre 0,35 MB e 1,53 MB é do aluno, e ele só
-           pode fazê-la se souber o número ANTES de tocar. -->
+      <!-- Seletor em dois grupos. Cada botão traz o ROSTO do professor (ou o
+           ícone do tipo, para quem ainda não tem sprite) com a borda na cor do
+           tipo — a mesma chave visual das badges e da roda. No celular cada
+           grupo vira uma fileira que rola na horizontal, em vez de empilhar
+           duas dezenas de botões antes do palco. -->
       <div v-if="MODEL_ENTRIES.length > 1" class="picker" role="group" :aria-label="model3d.pickerLabel">
-        <button
-          v-for="entry in MODEL_ENTRIES"
-          :key="entry.slug"
-          type="button"
-          class="picker__btn"
-          :class="{ 'picker__btn--on': entry.slug === escolhido }"
-          :style="{ '--tipo': corDoTipo(entry.types) }"
-          :aria-pressed="entry.slug === escolhido"
-          @click="escolher(entry.slug)"
-        >
-          <TypeIcon :type="entry.types[0]" :size="18" />
-          <span class="picker__name">{{ entry.name }}</span>
-          <span class="picker__size">{{ entry.sizeMb.toLocaleString('pt-BR') }} MB</span>
-        </button>
+        <div v-for="grupo in grupos" :key="grupo.key" class="picker__group">
+          <p :id="`picker-${grupo.key}`" class="picker__label">{{ grupo.label }}</p>
+          <ul class="picker__list" :aria-labelledby="`picker-${grupo.key}`">
+            <li v-for="entry in grupo.entries" :key="entry.slug">
+              <button
+                type="button"
+                class="picker__btn"
+                :class="{ 'picker__btn--on': entry.slug === escolhido }"
+                :style="{ '--tipo': corDoTipo(entry.types) }"
+                :aria-pressed="entry.slug === escolhido"
+                @click="escolher(entry.slug)"
+              >
+                <img draggable="false"
+                  v-if="entry.poster"
+                  class="picker__face"
+                  :src="entry.poster"
+                  alt=""
+                  width="32"
+                  height="32"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <TypeIcon v-else-if="entry.types?.length" :type="entry.types[0]" :size="18" />
+                <span class="picker__name">{{ entry.name }}</span>
+              </button>
+            </li>
+          </ul>
+        </div>
       </div>
 
-      <!-- Estado inicial: uma IMAGEM. Nunca um canvas vazio esperando. -->
+      <!-- Estado inicial: uma IMAGEM (ou o nome, para quem não tem sprite).
+           Nunca um canvas vazio esperando. -->
       <div
         v-if="!isOpen && atual"
         class="model__poster"
         :style="{ '--tipo-atual': corPlacaDoTipo(atual.types) }"
       >
-        <img
+        <img draggable="false"
+          v-if="atual.poster"
           class="pixelated"
           :src="atual.poster"
-          :alt="`Rosto do professor ${atual.name} em pixel art`"
-          width="35"
-          height="35"
+          :alt="`Rosto de ${atual.name} em pixel art`"
+          width="160"
+          height="160"
           loading="lazy"
           decoding="async"
         />
+        <p v-else class="model__poster-name">{{ atual.name }}</p>
 
         <div class="model__actions">
           <PixelButton variant="ghost" @click="open">
             {{ model3d.cta }}
           </PixelButton>
-          <p class="model__hint">
-            {{ model3d.ctaHint }}
-            <span> Cerca de {{ tamanhoFormatado }} MB.</span>
-          </p>
+          <p class="model__hint">{{ model3d.ctaHint }}</p>
           <p v-if="refusalMessage" class="model__refusal" role="status">
             {{ refusalMessage }}
           </p>
@@ -193,7 +221,7 @@ watch(status, (value) => {
             <span v-if="progress > 0">{{ Math.round(progress * 100) }}%</span>
           </p>
           <div class="model__bar">
-            <span class="model__bar-fill" :style="{ width: `${Math.round(progress * 100)}%` }" />
+            <span class="model__bar-fill" :style="{ transform: `scaleX(${progress})` }" />
           </div>
         </div>
 
@@ -219,22 +247,81 @@ watch(status, (value) => {
 
 .picker {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.picker__group {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-2);
+  min-width: 0;
+}
+
+.picker__label {
+  font-family: var(--font-pixel);
+  font-size: var(--fs-pixel-sm);
+  line-height: 1.7;
+  color: var(--unifil-gold);
+}
+
+/* Celular: uma fileira que rola na horizontal, com snap em cada botão e a
+   rolagem presa nela (não arrasta a página junto). Desktop: quebra linha. */
+.picker__list {
+  list-style: none;
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-border) transparent;
+  padding-bottom: var(--space-2);
+  margin-inline: calc(-1 * var(--space-1));
+  padding-inline: var(--space-1);
+}
+
+.picker__list > li {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+}
+
+@media (min-width: 720px) {
+  .picker__list {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    padding-bottom: 0;
+  }
 }
 
 .picker__btn {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  min-height: 44px;
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-1);
   background: var(--bg-deep);
   border: 2px solid var(--surface-border);
   border-radius: var(--radius);
   color: var(--text-muted);
   cursor: pointer;
   font: inherit;
+  touch-action: manipulation;
   transition: border-color var(--dur-fast) var(--ease-pixel);
+}
+
+/* Quem não tem rosto (formas especiais) recebe o recuo simétrico. */
+.picker__btn:not(:has(.picker__face)) {
+  padding-left: var(--space-3);
+}
+
+.picker__face {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--tipo) 22%, var(--bg-deep));
 }
 
 .picker__btn:hover {
@@ -263,12 +350,24 @@ watch(status, (value) => {
   font-family: var(--font-pixel);
   font-size: 10px;
   line-height: 1.6;
+  white-space: nowrap;
 }
 
-.picker__size {
-  font-size: 12px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
+.model__poster-name {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  max-width: 240px;
+  padding: var(--space-4);
+  border: 3px solid var(--bg-deep);
+  border-radius: var(--radius);
+  box-shadow: var(--dex-bevel);
+  background: color-mix(in srgb, var(--tipo-atual) 22%, var(--bg-deep));
+  font-family: var(--font-pixel);
+  font-size: var(--fs-h3);
+  line-height: 1.6;
+  text-align: center;
+  color: var(--text-primary);
 }
 
 .model__poster {
@@ -309,15 +408,20 @@ watch(status, (value) => {
 }
 
 .model__hint {
+  font-family: var(--font-pixel);
   font-size: var(--fs-body-sm);
+  line-height: 1.7;
   color: var(--text-muted);
 }
 
 .model__refusal {
+  font-family: var(--font-pixel);
   font-size: var(--fs-body-sm);
+  line-height: 1.7;
   color: var(--unifil-gold);
-  border-left: 3px solid var(--unifil-orange);
-  padding-left: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: color-mix(in srgb, var(--unifil-orange) 14%, var(--bg-deep));
+  border-radius: var(--radius);
 }
 
 .model__stage {
@@ -356,11 +460,15 @@ watch(status, (value) => {
   overflow: hidden;
 }
 
+/* `scaleX`, não `width`: anima no compositor, sem recalcular layout a cada
+   evento de progresso do download. */
 .model__bar-fill {
   display: block;
+  width: 100%;
   height: 100%;
   background: var(--unifil-orange);
-  transition: width var(--dur-base) var(--ease-pixel);
+  transform-origin: left center;
+  transition: transform var(--dur-base) var(--ease-pixel);
 }
 
 .model__stage-actions {

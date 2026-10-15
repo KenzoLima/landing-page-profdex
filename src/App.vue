@@ -1,5 +1,7 @@
 <script setup>
 import HeroSection from '@/sections/HeroSection.vue'
+import BattleVideoSection from '@/sections/BattleVideoSection.vue'
+import AppDemoSection from '@/sections/AppDemoSection.vue'
 import HowItWorksSection from '@/sections/HowItWorksSection.vue'
 import TypeWheelSection from '@/sections/TypeWheelSection.vue'
 import BattleSection from '@/sections/BattleSection.vue'
@@ -7,29 +9,38 @@ import ModelSection from '@/sections/ModelSection.vue'
 import PvpSection from '@/sections/PvpSection.vue'
 import ScoreSection from '@/sections/ScoreSection.vue'
 import ProfessorsSection from '@/sections/ProfessorsSection.vue'
-import CtaSection from '@/sections/CtaSection.vue'
+import CreditsSection from '@/sections/CreditsSection.vue'
+import SiteNav from '@/sections/SiteNav.vue'
 import SiteFooter from '@/sections/SiteFooter.vue'
 </script>
 
 <template>
   <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
 
+  <!-- A barra fica FORA do <main>: é navegação da página inteira, não
+       conteúdo dela. Vem antes do hero na ordem de leitura e de tabulação,
+       logo depois do skip-link, que é exatamente onde quem usa teclado
+       espera encontrar a navegação. -->
+  <SiteNav />
+
   <HeroSection />
 
   <main id="conteudo">
-    <!-- A ordem conta a história na sequência em que o aluno vive: primeiro
-         como se joga, depois o sistema que dá profundidade (tipos), depois a
-         batalha, e só então o 3D — que é "ver o professor de perto", o passo
-         seguinte natural de quem acabou de ver o combate. Competição, placar e
-         coleção fecham, e o CTA vem quando já há motivo para clicar. -->
+    <!-- Os vídeos abrem a página (é para lá que o botão do hero leva). Depois, a
+         história na sequência em que o aluno vive: como se joga, o sistema de
+         tipos, a batalha e o 3D; então o simulador, onde o visitante toca nas
+         telas do app de verdade; e por fim a competição, a coleção e os
+         créditos, com o time, as fotos e os números do evento. -->
+    <BattleVideoSection />
     <HowItWorksSection />
     <TypeWheelSection />
     <BattleSection />
     <ModelSection />
+    <AppDemoSection />
     <PvpSection />
     <ScoreSection />
     <ProfessorsSection />
-    <CtaSection />
+    <CreditsSection />
   </main>
 
   <SiteFooter />
@@ -52,6 +63,6 @@ import SiteFooter from '@/sections/SiteFooter.vue'
 }
 
 .skip-link:focus {
-  top: var(--space-3);
+  top: calc(var(--space-3) + env(safe-area-inset-top, 0px));
 }
 </style>
