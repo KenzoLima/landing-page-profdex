@@ -147,34 +147,42 @@ export const battleVideo = {
   },
 }
 
+/* O PvP é contado por uma partida encenada com as telas do app
+ * (src/app-demo/pvp/): cada cena tem só um título e uma linha, e quem explica
+ * é a tela. Os textos DENTRO das telas são os do app (roteiro.js). */
 export const pvp = {
   kicker: 'PvP ranqueado',
   title: 'Aluno contra aluno, em tempo real',
+  // Os ids casam com as cenas de src/app-demo/pvp/roteiro.js.
   steps: [
-    { title: 'Lobby', desc: 'Você vê quem está online agora.' },
-    { title: 'Convite', desc: 'Chama alguém para a briga. O convite expira em 60 segundos.' },
-    {
-      title: 'Times às cegas',
-      desc: 'Cada um monta um time de até 3 sem ver o do outro. Depois dos dois confirmarem, aparece o time do rival (professores e tipos, nunca golpes nem IVs), e cada um escolhe, também às cegas, quem entra primeiro.',
-    },
-    {
-      title: 'Turnos de 60s',
-      desc: 'Escolha simultânea.',
-    },
-    { title: 'Elo', desc: 'Quando um time fica sem ninguém de pé (ou no limite de 40 turnos), o rating muda e o ranking se mexe.' },
+    { id: 'lobby', title: 'Lobby', desc: 'Veja quem está online agora.' },
+    { id: 'desafio', title: 'Desafio', desc: 'Chega em qualquer tela e vale por 60 segundos.' },
+    { id: 'times', title: 'Times às cegas', desc: 'Até 3 professores. O time do rival só aparece quando os dois confirmam.' },
+    { id: 'turno', title: 'Turnos de 60s', desc: 'Os dois escolhem o golpe ao mesmo tempo.' },
+    { id: 'elo', title: 'Elo', desc: 'Ganhou, subiu. Todo mundo começa em 1000, que também é o piso.' },
   ],
   // Cortes conferidos na fonte de verdade: profdex-back/src/battle/elo.ts.
+  // `icon` é o ícone pixel do app (src/data/pixelIcons.js).
   tiers: [
-    { name: 'Bronze', min: 1000, max: 1099, icon: '🥉' },
-    { name: 'Prata', min: 1100, max: 1199, icon: '🥈' },
-    { name: 'Ouro', min: 1200, max: 1299, icon: '🥇' },
-    { name: 'Platina', min: 1300, max: 1399, icon: '💠' },
-    { name: 'Diamante', min: 1400, max: 1499, icon: '💎' },
-    { name: 'Mestre', min: 1500, max: null, icon: '👑' },
+    { name: 'Bronze', min: 1000, icon: 'tier-bronze' },
+    { name: 'Prata', min: 1100, icon: 'tier-prata' },
+    { name: 'Ouro', min: 1200, icon: 'tier-ouro' },
+    { name: 'Platina', min: 1300, icon: 'tier-platina' },
+    { name: 'Diamante', min: 1400, icon: 'tier-diamante' },
+    { name: 'Mestre', min: 1500, icon: 'tier-mestre' },
   ],
-  ratingNote:
-    'Todo mundo começa em 1000, e 1000 também é o piso: perder muito não te enterra no ranking.',
-  antiTrade: 'Intervalo entre batalhas ranqueadas da mesma dupla (12 horas por padrão, ajustável pela organização), para o ranking não virar acordo entre amigos.',
+  tiersLabel: 'Tiers do ranqueado',
+  you: 'Você',
+  facts: [
+    { icon: 'ampulheta', text: 'No máximo 40 turnos' },
+    { icon: 'cadeado', text: 'Mesma dupla: 12 h entre ranqueadas, por padrão' },
+  ],
+  player: {
+    label: 'Cenas da partida',
+    stage: 'Tela do app na cena',
+    pause: 'Pausar',
+    play: 'Continuar',
+  },
 }
 
 export const score = {
@@ -210,6 +218,9 @@ export const professors = {
   raresTitle: '✦ Raros e o lendário',
   raresHint: 'Formas especiais: cada raro se destrava acertando cinco questões de cada tipo dele no quiz da bancada. O lendário fica em segredo até a raid, e só aparece para quem completa a Pokédex inteira, raros incluídos.',
   legendaryHint: 'Aparece na raid',
+  legendaryCta: 'VER RAID',
+  // Começa com o texto visível ("VER RAID"), como pede a WCAG 2.5.3.
+  legendaryCtaLabel: 'Ver raid: a luta contra o lendário, no simulador',
 }
 
 export const model3d = {
@@ -244,7 +255,7 @@ export const model3d = {
 export const appDemo = {
   kicker: 'Experimente',
   title: 'O app, na palma da mão',
-  desc: 'O jogo está fora do ar por algumas semanas, então montamos uma réplica navegável. Toque nas abas embaixo do celular: é o mesmo desenho e o mesmo motor de batalha do app, com dados fictícios.',
+  desc: 'Montamos uma réplica navegável. Toque nas abas embaixo do celular: é o mesmo desenho e o mesmo motor de batalha do app, com dados fictícios.',
   badge: 'Demonstração · dados fictícios',
   fullscreen: {
     open: 'ABRIR EM TELA CHEIA',
@@ -252,7 +263,7 @@ export const appDemo = {
     label: 'Simulador do ProfDex em tela cheia',
   },
   navLabel: 'Telas do app',
-  note: 'Nada aqui usa câmera, login ou servidor. A coleção é a de um treinador fictício, com a Pokédex completa, e o ranking tem nomes inventados.',
+  note: '',
   tabs: {
     dex: 'ProfDex',
     battle: 'Batalha',
@@ -386,12 +397,12 @@ export const credits = {
     },
     {
       name: 'Maísa P. Dalla Costa',
-      role: 'Arte e pixel art',
+      role: 'Arte e modelagem 3D',
       links: perfis('https://www.linkedin.com/in/maisapascoalotodallacosta/', 'https://github.com/maisadallacosta'),
     },
     {
       name: 'Nicole Duarte Guirardelli',
-      role: 'Back-end',
+      role: 'Pixel Artes',
       links: perfis('https://www.linkedin.com/in/nicole-guirardelli/', 'https://github.com/NicoleGuirardelli'),
     },
   ],

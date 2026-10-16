@@ -58,7 +58,7 @@ onBeforeUnmount(() => {
           <p class="demo__guide-title">{{ item.title }}</p>
           <p class="demo__guide-desc">{{ item.desc }}</p>
         </li>
-        <li class="demo__guide-note">{{ appDemo.note }}</li>
+        <li v-if="appDemo.note" class="demo__guide-note">{{ appDemo.note }}</li>
       </ul>
     </div>
   </SectionShell>

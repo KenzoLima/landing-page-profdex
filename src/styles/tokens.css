@@ -22,6 +22,13 @@
   --success-bg: #234a18;
   --success-text: #82d16b;
 
+  /* Metais dos ícones de tier (src/data/pixelIcons.js), iguais ao app: a
+     prata sai do texto apagado e o bronze é o laranja da marca escurecido, para
+     a escada ouro › prata › bronze ficar dentro da paleta. */
+  --silver-hi: color-mix(in srgb, var(--text-muted) 45%, var(--text-primary));
+  --silver-lo: color-mix(in srgb, var(--text-muted) 38%, var(--surface-border));
+  --bronze-lo: color-mix(in srgb, var(--unifil-orange) 55%, var(--bg-deep));
+
   /* ── Controles estilo Nintendo DS (paleta de acento) ──────────────────── */
   --ds-orange: #cba034;
   --ds-orange-glow: #ffdf6d;

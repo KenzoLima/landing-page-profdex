@@ -1,8 +1,10 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { appDemo, pvp } from '@/content/copy.js'
+import { appDemo } from '@/content/copy.js'
+import { TIER_ICONE } from '@/data/pixelIcons.js'
 import { rankingDe } from '../mock.js'
 import AppHeader from '../AppHeader.vue'
+import PixelIcon from '@/components/PixelIcon.vue'
 
 // O Ranking do app (RankingView + LeaderboardPodium + LeaderboardRow) com
 // jogadores FICTÍCIOS: apelidos genéricos, nenhum nome de aluno.
@@ -21,7 +23,6 @@ const podio = computed(() => {
 const resto = computed(() => lista.value.slice(3))
 const eu = computed(() => lista.value.find((j) => j.id === 'voce'))
 
-const ICONE_TIER = Object.fromEntries(pvp.tiers.map((x) => [x.name, x.icon]))
 const inicial = (nome) => nome.replace(/[^a-z]/gi, '').charAt(0).toUpperCase()
 const fmt = new Intl.NumberFormat('pt-BR')
 </script>
@@ -51,7 +52,7 @@ const fmt = new Intl.NumberFormat('pt-BR')
         <span class="degrau__avatar" aria-hidden="true">{{ inicial(j.name) }}</span>
         <span class="degrau__name">{{ j.name }}</span>
         <span class="degrau__pts">{{ fmt.format(j.value) }} <small>{{ j.unit }}</small></span>
-        <span v-if="j.tier" class="degrau__tier">{{ ICONE_TIER[j.tier] }} {{ j.tier }}</span>
+        <span v-if="j.tier" class="degrau__tier"><PixelIcon :nome="TIER_ICONE[j.tier]" :escala="1" /> {{ j.tier }}</span>
         <span class="degrau__bloco" aria-hidden="true">{{ lugar }}</span>
         <span class="sr-only">{{ lugar }}º lugar</span>
       </li>
@@ -63,7 +64,7 @@ const fmt = new Intl.NumberFormat('pt-BR')
         <span class="linha__who">
           <span class="linha__name">{{ j.id === 'voce' ? `${t.you} · ` : '' }}{{ j.name }}</span>
           <span class="linha__detail">
-            <template v-if="j.tier">{{ ICONE_TIER[j.tier] }} {{ j.tier }} · </template>{{ j.detail }}
+            <template v-if="j.tier"><PixelIcon :nome="TIER_ICONE[j.tier]" :escala="1" /> {{ j.tier }} · </template>{{ j.detail }}
           </span>
         </span>
         <span class="linha__pts">{{ fmt.format(j.value) }} <small>{{ j.unit }}</small></span>
@@ -174,6 +175,13 @@ const fmt = new Intl.NumberFormat('pt-BR')
 .me__pts small {
   font-size: 6px;
   color: var(--unifil-gold);
+}
+
+.degrau__tier,
+.linha__detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .degrau__tier {

@@ -39,6 +39,11 @@ const dexNumber = computed(() => String(props.index + 1).padStart(3, '0'))
 const revealDelay = computed(() => ({ '--reveal-i': props.index }))
 
 const unknownLabel = professorsCopy.unknownLabel
+
+/** O lendário leva ao simulador já na aba Raid, onde a luta é contada. */
+function abrirRaid() {
+  window.dispatchEvent(new CustomEvent('profdex:abrir-app', { detail: 'raid' }))
+}
 </script>
 
 <template>
@@ -99,6 +104,17 @@ const unknownLabel = professorsCopy.unknownLabel
       <ul v-if="rarity !== 'legendary'" class="card__types">
         <li v-for="t in professor.types" :key="t"><TypeBadge :type-id="t" size="sm" /></li>
       </ul>
+      <!-- O card inteiro é o alvo (o ::after do link cobre o card), mas quem
+           recebe o foco e o nome acessível é o link. -->
+      <a
+        v-if="rarity === 'legendary'"
+        class="card__raid"
+        href="#simulador"
+        :aria-label="professorsCopy.legendaryCtaLabel"
+        @click="abrirRaid"
+      >
+        {{ professorsCopy.legendaryCta }}
+      </a>
     </div>
   </li>
 </template>
@@ -275,6 +291,47 @@ const unknownLabel = professorsCopy.unknownLabel
   font-size: 8px;
   line-height: 1.6;
   color: #ffd166;
+}
+
+/* O botão "VER RAID" do card lendário do app. */
+.card__raid {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  margin-top: var(--space-1);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius);
+  background: var(--unifil-gold);
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  color: #1a1a1a;
+  text-decoration: none;
+  touch-action: manipulation;
+}
+
+.card__raid::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.card__raid:hover {
+  text-decoration: none;
+  background: #ffd166;
+}
+
+.card__raid:focus-visible {
+  outline: none;
+}
+
+.card--legendary:has(.card__raid:focus-visible) {
+  outline: 3px solid var(--unifil-gold);
+  outline-offset: 3px;
+}
+
+.card--legendary:has(.card__raid) {
+  cursor: pointer;
 }
 
 /* Raro em silhueta (variante mantida para quem ainda não revelou). */
